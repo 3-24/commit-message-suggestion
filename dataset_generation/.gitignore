@@ -1,0 +1,6 @@
+.venv
+.venv.windows
+CodeSearchnet/*
+*.pkl
+.ipynb_checkpoints/*
+python.zip
