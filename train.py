@@ -21,12 +21,12 @@ def train(root):
     train_df = pd.read_pickle(train_path)
 
     for msg in train_df["diff"]:
-    m = json.loads(msg)
-    src_counter.update(m)
+        m = json.loads(msg)
+        src_counter.update(m)
 
     for msg in train_df["commit_messsage"]:
-    m = json.loads(msg)
-    trg_counter.update(m)
+        m = json.loads(msg)
+        trg_counter.update(m)
 
     src_vocab = Vocab.from_counter(
         counter=src_counter, 
@@ -44,7 +44,7 @@ def train(root):
         gpus=torch.cuda.device_count(),
         max_epochs=args.epochs,
         gradient_clip_val=args.max_grad_norm
-        )
+    )
 
     train_loader = DataLoader(
         CommitDataset(src_vocab, trg_vocab, train_path),
