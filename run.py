@@ -7,6 +7,8 @@ import pandas as pd
 import json
 import torch
 from model import SummarizationModel
+from data import CommitDataset
+from torch.utils.data import DataLoader
 
 root = '.'
 
@@ -14,8 +16,10 @@ pl.seed_everything(args.seed)
 
 src_counter = Counter()
 trg_counter = Counter()
-data_path = Path(root) / 'validation.pkl'   # Replace later
-train_df = pd.read_pickle(data_path)
+train_path = Path(root) / 'train.pkl'
+validation_path = Path(root) / 'validation.pkl'
+test_path = Path(root) / 'test.pkl'
+train_df = pd.read_pickle(train_path)
 
 for msg in train_df["diff"]:
   m = json.loads(msg)
@@ -42,6 +46,17 @@ trainer = pl.Trainer(
     max_epochs=args.epochs,
     gradient_clip_val=args.max_grad_norm
     )
+
+train_loader = DataLoader(
+    CommitDataset(src_vocab, trg_vocab, train_path),
+    batch_size=args.batch_size,
+    shuffle=True
+)
+val_loader = DataLoader(
+    CommitDataset(src_vocab, trg_vocab, validation_path),
+    batch_size=args.batch_size,
+    shuffle=False
+)
 
 trainer.fit(model, train_loader, val_loader)
 
