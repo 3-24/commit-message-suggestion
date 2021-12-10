@@ -191,12 +191,26 @@ class SummarizationModel(pl.LightningModule):
             max_oov_len=batch.max_oov_len)
         
         dec_target = batch.dec_target
-        
         loss = F.nll_loss(torch.log(output), dec_target, ignore_index=args.pad_id, reduction='mean')
         self.logger.log_metrics({"train_loss": loss}, self.num_step)
         self.num_step += 1
         return loss
     
+    def validation_step(self, batch, batch_idx):
+        output = self.model.forward(
+            enc_input=batch.enc_input,
+            enc_input_ext=batch.enc_input_ext,
+            enc_pad_mask=batch.enc_pad_mask,
+            enc_len=batch.enc_len,
+            dec_input=batch.dec_input,
+            max_oov_len=batch.max_oov_len)
+        
+        dec_target = batch.dec_target
+        loss = F.nll_loss(
+            torch.log(output), dec_target, ignore_index=args.pad_id, reduction='mean')
+        self.log('val_loss', loss, on_step=True, on_epoch=False, prog_bar=False, logger=True)
+        self.logger.log_metrics({'val_loss': loss}, self.num_step)
+        return loss
 
     def test_step(self, batch, batch_idx):
         output = self.model.inference(

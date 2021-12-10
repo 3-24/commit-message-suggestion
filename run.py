@@ -27,14 +27,12 @@ for msg in train_df["commit_messsage"]:
 
 src_vocab = Vocab.from_counter(
     counter=src_counter, 
-    vocab_size=args.vocab_size,
-    min_freq=2
+    vocab_size=args.vocab_size
 )
 
 trg_vocab = Vocab.from_counter(
     counter=trg_counter, 
-    vocab_size=args.vocab_size,
-    min_freq=2
+    vocab_size=args.vocab_size
 )
 
 model = SummarizationModel(src_vocab, trg_vocab)
@@ -45,5 +43,5 @@ trainer = pl.Trainer(
     gradient_clip_val=args.max_grad_norm
     )
 
-#trainer.fit(model, train_loader, val_loader)
+trainer.fit(model, train_loader, val_loader)
 
