@@ -51,6 +51,9 @@ class Vocab(object):
   
   def unk(self):
     return self._word_to_id.get(unk_token)
+  
+  def pad(self):
+    return self._word_to_id.get(pad_token)
 
   def word2id(self, word):
     unk_id = self._word_to_id.get(word, self.unk())

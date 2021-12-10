@@ -11,3 +11,5 @@ args.learning_rate = 0.15
 args.accum_init = 0.15
 args.pad_id = 0
 args.seed = 123
+args.epochs = 10
+args.max_grad_norm = 2.0

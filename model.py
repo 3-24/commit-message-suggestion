@@ -2,6 +2,7 @@ from torch import nn
 from config import args
 import torch.nn.functional as F
 import torch
+import pytorch_lightning as pl
 """
 B : batch size
 E : embedding size
@@ -10,7 +11,7 @@ L : sequence length
 T : target sequence length
 """
 
-class EncoderLayer(nn.Module):
+class Encoder(nn.Module):
 
     def __init__(self, input_dim, hidden_dim):
         """
@@ -47,7 +48,7 @@ class EncoderLayer(nn.Module):
         return enc_hidden, (final_hidden, final_cell)
 
 
-class Attnetion(nn.Module):
+class Attention(nn.Module):
     def __init__(self, hidden_dim):
         super().__init__()
         self.v = nn.Linear(hidden_dim * 2, 1, bias=False)                       # v
@@ -55,29 +56,29 @@ class Attnetion(nn.Module):
         self.dec_proj = nn.Linear(hidden_dim, hidden_dim * 2, bias=True)        # W_s, b_attn
   
 
-  def forward(self, dec_input, enc_hidden, enc_pad_mask):
-    """
-    Args:
-        dec_input: decoder hidden state             [B x H]
-        enc_hidden: encoder hidden states           [B x L x 2H]
-        enc_pad_mask: encoder padding masks         [B x L]
-    Returns:
-        attn_dist: attention dist'n over src tokens [B x L]
-    """
-    enc_feature = self.enc_proj(enc_hidden)               # [B X L X 2H]
-    dec_feature = self.dec_proj(dec_input).unsqueeze(1)   # [B X 1 X 2H]
+    def forward(self, dec_input, enc_hidden, enc_pad_mask):
+        """
+        Args:
+            dec_input: decoder hidden state             [B x H]
+            enc_hidden: encoder hidden states           [B x L x 2H]
+            enc_pad_mask: encoder padding masks         [B x L]
+        Returns:
+            attn_dist: attention dist'n over src tokens [B x L]
+        """
+        enc_feature = self.enc_proj(enc_hidden)               # [B X L X 2H]
+        dec_feature = self.dec_proj(dec_input).unsqueeze(1)   # [B X 1 X 2H]
 
-    scores = torch.v(torch.tanh(enc_feature + dec_feature)).squeeze(-1)  # [B X L]
+        scores = torch.v(torch.tanh(enc_feature + dec_feature)).squeeze(-1)  # [B X L]
 
-    if enc_pad_mask is not None:
-        scores = scores.float().masked_fill_(
-            enc_pad_mask,
-            float('-inf')
-        ).type_as(scores)  # FP16 support: cast to float and back
-    
-    attn_dist = F.softmax(scores, dim=-1) # [B X L]
+        if enc_pad_mask is not None:
+            scores = scores.float().masked_fill_(
+                enc_pad_mask,
+                float('-inf')
+            ).type_as(scores)  # FP16 support: cast to float and back
+        
+        attn_dist = F.softmax(scores, dim=-1) # [B X L]
 
-    return attn_dist
+        return attn_dist
 
 
 class AttentionDecoderLayer(nn.Module):
@@ -118,11 +119,11 @@ class PointerGenerator(nn.Module):
   def __init__(self, src_vocab, trg_vocab):
     super().__init__()
     embed_dim = args.embed_dim
-    self.src_embedding = nn.Embedding(len(src_vocab), embed_dim, padding_idx=self.src_vocab.pad())
-    self.trg_embedding = nn.Embedding(len(trg_vocab), embed_dim, padding_idx=self.trg_vocab.pad())
+    self.src_embedding = nn.Embedding(len(src_vocab), embed_dim, padding_idx=src_vocab.pad())
+    self.trg_embedding = nn.Embedding(len(trg_vocab), embed_dim, padding_idx=trg_vocab.pad())
 
 
-    hideen_dim = args.hidden_dim
+    hidden_dim = args.hidden_dim
     self.encoder = Encoder(input_dim=embed_dim, hidden_dim=hidden_dim)
     self.decoder = AttentionDecoderLayer(input_dim=embed_dim, hidden_dim=hidden_dim, vocab_size=len(trg_vocab))
 
@@ -174,10 +175,10 @@ class PointerGenerator(nn.Module):
 
 
 class SummarizationModel(pl.LightningModule):
-    def __init__(self, vocab):
+    def __init__(self, src_vocab, trg_vocab):
         super().__init__()
-        self.vocab = vocab
-        self.model = PointerGenerator(vocab)
+        self.vocab = trg_vocab
+        self.model = PointerGenerator(src_vocab, trg_vocab)
         self.num_step = 0
     
     def training_step(self, batch, batch_idx):
@@ -206,6 +207,8 @@ class SummarizationModel(pl.LightningModule):
             src_oovs=batch.src_oovs,
             max_oov_len=batch.max_oov_len
         )
+        result = {}
+        result['target'] = output
         result['source'] = [' '.join(w) for w in batch.src_text]
         result['gold_target'] = [' '.join(w) for w in batch.tgt_text]
         return result
