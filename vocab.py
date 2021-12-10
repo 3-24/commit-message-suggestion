@@ -23,18 +23,18 @@ class Vocab(object):
     return vocab
 
   @classmethod
-  def from_counter(cls, counter, vocab_size, specials, min_freq):
+  def from_counter(cls, counter, vocab_size, min_freq, specials=[pad_token, unk_token, start_decode, stop_decode]):
     vocab = cls()
     word_and_freq = sorted(counter.items(), key=lambda tup: tup[0])
     word_and_freq.sort(key=lambda tup: tup[1], reverse=True)
 
     for w in specials:
       vocab._word_to_id[w] = vocab._count
-      vocab.append(w)
+      vocab._id_to_word.append(w)
       vocab._count += 1
 
     for word, freq in word_and_freq:
-      if freq < min_freq or vocab._count == vocab.size:
+      if freq < min_freq or vocab._count == vocab_size:
         break
       vocab._word_to_id[word] = vocab._count
       vocab._id_to_word.append(word)
