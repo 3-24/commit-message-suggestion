@@ -26,20 +26,22 @@ class CommitDataset(Dataset):
 
 
 def commit_collate_fn(batchdata):
-    src_ids = [b.src_ids for b in batchdata]
-    src_ext_ids = [b.src_ids_ext for b in batchdata]
-    oovs = [b.oovs for b in batchdata]
-    trg_ids = [b.trg_ids for b in batchdata]
-    print(batchdata)
-    print(len(batchdata))
-    batch = EasyDict()
-    batch.max_oov_len = max([len(oov) for oov in oovs])
-    assert(False)
-    '''
-    batch = EasyDict()
-    batch.enc_input
-    batch.enc_input_ext
-    batch.enc_pad_mask
-    batch.enc_len
-    batch.dec_input
-  '''
+  size = len(batchdata)
+  max_enc_len, max_dec_len,max_oov_len = 0,0,0
+  for i in range(size):
+    max_enc_len = max(len(batchdata[i]['src_ids']),max_enc_len)
+    max_dec_len = max(len(batchdata[i]['trg_ids']),max_dec_len)
+    max_oov_len = max(len(batchdata[i]['oovs']),max_oov_len)
+  
+  for i in range(len(batchdata)):
+    batchdata[i]['src_ids'] += [0]*(max_enc_len-len(batchdata[i]['src_ids']))
+    batchdata[i]['src_ids_ext'] += [0]*(max_enc_len-len(batchdata[i]['src_ids_ext']))
+    batchdata[i]['trg_ids'] += [0]*(max_dec_len-len(batchdata[i]['trg_ids']))
+  batch = EasyDict()
+  batch.enc_input = torch.LongTensor([batchdata[i]['src_ids'] for i in range(size)])
+  batch.enc_input_ext = torch.LongTensor([batchdata[i]['src_ids_ext'] for i in range(size)])
+  batch.enc_pad_mask = (batch.enc_input == 0)
+  batch.enc_len = torch.LongTensor(max_enc_len)
+  batch.dec_input = torch.LongTensor([batchdata[i]['trg_ids'] for i in range(size)])
+  batch.max_oov_len = max_oov_len
+  return batch
