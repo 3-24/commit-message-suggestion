@@ -158,7 +158,12 @@ class PointerGenerator(nn.Module):
 
         final_dists = []
 
-        for t in range(args.trg_max_len):
+        if (teacher_forcing):
+            num_iter = dec_emb.shape[1]
+        else:
+            num_iter = args.trg_max_len
+
+        for t in range(num_iter):
             if teacher_forcing:
                 input_t = dec_emb[:, t, :]
             else:

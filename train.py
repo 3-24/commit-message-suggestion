@@ -54,3 +54,5 @@ def train(root):
     )
 
     trainer.fit(model, train_loader, val_loader)
+
+train('.')

@@ -34,7 +34,7 @@ def commit_collate_fn(batchdata):
         max_enc_len = max(len(batchdata[i]['src_ids']), max_enc_len)
         max_dec_len = max(len(batchdata[i]['trg_ids']), max_dec_len)
         max_oov_len = max(len(batchdata[i]['oovs']), max_oov_len)
-    
+
     for i in range(len(batchdata)):
         batchdata[i]['src_ids'] += [0]*(max_enc_len-len(batchdata[i]['src_ids']))
         batchdata[i]['src_ids_ext'] += [0]*(max_enc_len-len(batchdata[i]['src_ids_ext']))
