@@ -177,9 +177,9 @@ class PointerGenerator(nn.Module):
             weighted_vocab_dist = p_gen * vocab_dist
             weighted_attn_dist = (1.0 - p_gen) * attn_dist
             B = vocab_dist.size(0)
-            extended_vocab_dist = torch.cat([weighted_vocab_dist, torch.zeros(B, max_oov_len, device=vocab_dist.device)], dim=-1)
+            extended_vocab_dist = torch.cat([weighted_vocab_dist, torch.zeros((B, max_oov_len), device=vocab_dist.device)], dim=-1)
 
-            final_dist = extended_vocab_dist.scatter_add(dim=-1, index=enc_input_ext, src=weighted_attn_dist) # [B X V_]
+            final_dist = extended_vocab_dist.scatter_add(dim=-1, index=enc_input_ext, src=weighted_attn_dist) # index [B X L] source [B X VT]
             final_dists.append(final_dist)
             if (not teacher_forcing):
                 highest_prob = torch.argmax(final_dist, dim=1)                              # [B]
