@@ -145,7 +145,7 @@ class PointerGenerator(nn.Module):
             coverages: coverage vectors from each t                 [B x L x T]
         """
         batch_size = enc_input.size(0)
-        enc_emb = self.src_embedding(enc_input)             # [B X L X E]
+        enc_emb = self.embedding(enc_input)             # [B X L X E]
         enc_hidden, (h,c) = self.encoder(enc_emb, enc_len)  # [B X L X 2H], [B X L X H], [B X L X H]
         teacher_forcing = False
 
