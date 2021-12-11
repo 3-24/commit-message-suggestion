@@ -3,6 +3,7 @@ from config import args
 import torch.nn.functional as F
 import torch
 import pytorch_lightning as pl
+from torch.optim import Adam
 """
 B : batch size
 E : embedding size
