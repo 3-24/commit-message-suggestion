@@ -124,7 +124,7 @@ class PointerGenerator(nn.Module):
 
         hidden_dim = args.hidden_dim
         self.encoder = Encoder(input_dim=embed_dim, hidden_dim=hidden_dim)
-        self.decoder = AttentionDecoderLayer(input_dim=embed_dim, hidden_dim=hidden_dim, vocab_size=len(trg_vocab))
+        self.decoder = AttentionDecoderLayer(input_dim=embed_dim, hidden_dim=hidden_dim, trg_vocab_size=len(trg_vocab))
 
         self.w_h = nn.Linear(hidden_dim * 2, 1, bias=False)
         self.w_s = nn.Linear(hidden_dim, 1, bias=False)
