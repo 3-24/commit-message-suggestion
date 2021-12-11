@@ -105,7 +105,7 @@ class AttentionDecoderLayer(nn.Module):
         cell: cell state at timestep t                      [B x H]
     """
     h, c = self.lstm(dec_input, (dec_hidden, dec_cell))  # [B X H], [B X H]
-    attn_dist = self.attention(dec_input, enc_hidden, enc_pad_mask).unsqueeze(1)  # [B X 1 X L]
+    attn_dist = self.attention(h, enc_hidden, enc_pad_mask).unsqueeze(1)  # [B X 1 X L]
     context_vec = torch.bmm(attn_dist, enc_hidden).squeeze(1)  # [B X 2H] <- [B X 1 X 2H] = [B X 1 X L] @ [B X L X 2H]
     output = self.l1(torch.cat([h, context_vec], dim = -1)) # [B X H]
     vocab_dist = F.softmax(self.l2(output), dim=-1)              # [B X V]
