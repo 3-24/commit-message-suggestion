@@ -82,12 +82,12 @@ class Attention(nn.Module):
 
 
 class AttentionDecoderLayer(nn.Module):
-  def __init__(self, input_dim, hidden_dim, trg_vocab_size):
+  def __init__(self, input_dim, hidden_dim, vocab_size):
     super().__init__()
     self.lstm = nn.LSTMCell(input_size=input_dim, hidden_size=hidden_dim)
     self.attention = Attention(hidden_dim)
     self.l1 = nn.Linear(hidden_dim*3, hidden_dim, bias=True)    # V
-    self.l2 = nn.Linear(hidden_dim, trg_vocab_size, bias=True)  # V'
+    self.l2 = nn.Linear(hidden_dim, vocab_size, bias=True)  # V'
   
   def forward(self, dec_input, dec_hidden, dec_cell, enc_hidden, enc_pad_mask):
     """
@@ -113,18 +113,16 @@ class AttentionDecoderLayer(nn.Module):
 
 
 class PointerGenerator(nn.Module):
-    def __init__(self, src_vocab, trg_vocab):
+    def __init__(self, vocab):
         super().__init__()
-        self.src_vocab = src_vocab
-        self.trg_vocab = trg_vocab
+        self.vocab = vocab
         embed_dim = args.embed_dim
-        self.src_embedding = nn.Embedding(len(src_vocab), embed_dim, padding_idx=src_vocab.pad())
-        self.trg_embedding = nn.Embedding(len(trg_vocab), embed_dim, padding_idx=trg_vocab.pad())
+        self.embedding = nn.Embedding(len(vocab), embed_dim, padding_idx=vocab.pad())
 
 
         hidden_dim = args.hidden_dim
         self.encoder = Encoder(input_dim=embed_dim, hidden_dim=hidden_dim)
-        self.decoder = AttentionDecoderLayer(input_dim=embed_dim, hidden_dim=hidden_dim, trg_vocab_size=len(trg_vocab))
+        self.decoder = AttentionDecoderLayer(input_dim=embed_dim, hidden_dim=hidden_dim, vocab_size=len(vocab))
 
         self.w_h = nn.Linear(hidden_dim * 2, 1, bias=False)
         self.w_s = nn.Linear(hidden_dim, 1, bias=False)
@@ -153,9 +151,9 @@ class PointerGenerator(nn.Module):
 
         if not dec_input is None:
             teacher_forcing = True
-            dec_emb = self.trg_embedding(dec_input)             # [B X T X E]
+            dec_emb = self.embedding(dec_input)             # [B X T X E]
         else:
-            dec_prev_emb = [self.trg_embedding(self.trg_vocab().start()) for _ in range(batch_size)]  # [B X E]
+            dec_prev_emb = [self.embedding(self.vocab().start()) for _ in range(batch_size)]  # [B X E]
 
 
         final_dists = []
@@ -183,15 +181,15 @@ class PointerGenerator(nn.Module):
             final_dists.append(final_dist)
             if (not teacher_forcing):
                 highest_prob = torch.argmax(final_dist, dim=1)                              # [B]
-                highest_prob[highest_prob >= len(self.trg_vocab)] = self.trg_vocab.unk()
-                dec_prev_emb = self.trg_embedding(B)        #[B X E]
+                highest_prob[highest_prob >= len(self.vocab)] = self.vocab.unk()
+                dec_prev_emb = self.embedding(B)        #[B X E]
         return torch.stack(final_dists, dim=-1)
 
 class SummarizationModel(pl.LightningModule):
-    def __init__(self, src_vocab, trg_vocab):
+    def __init__(self, vocab):
         super().__init__()
-        self.vocab = trg_vocab
-        self.model = PointerGenerator(src_vocab, trg_vocab)
+        self.vocab = vocab
+        self.model = PointerGenerator(vocab)
         self.num_step = 0
     
     def training_step(self, batch, batch_idx):
