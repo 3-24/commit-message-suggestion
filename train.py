@@ -35,13 +35,14 @@ def train(root):
 
     model = SummarizationModel(vocab)
 
-    checkpoint_callback = ModelCheckpoint(dirpath=f"root/checkpoints/")
+    checkpoint_callback = ModelCheckpoint(dirpath=f"{root}/checkpoints/")
 
     trainer = pl.Trainer(
         gpus=torch.cuda.device_count(),
         max_epochs=args.epochs,
         gradient_clip_val=args.max_grad_norm,
-        callbacks=[checkpoint_callback]
+        callbacks=[checkpoint_callback],
+        precision=16
     )
 
     train_loader = DataLoader(

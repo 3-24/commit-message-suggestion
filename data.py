@@ -4,11 +4,14 @@ import json
 from vocab import Vocab
 from easydict import EasyDict
 import torch
+from config import args
+from torch.nn.utils.rnn import pad_sequence
 
 class CommitDataset(Dataset):
     def __init__(self, vocab: Vocab, file_path):
         self.vocab = vocab
-        self.df = pd.read_pickle(file_path)
+        df = pd.read_pickle(file_path)
+        self.df = df[df.apply(lambda x: len(json.loads(x["diff"]))<args.src_max_len, axis=1)]
     
     def __getitem__(self, index):
         item = EasyDict()
@@ -24,26 +27,24 @@ class CommitDataset(Dataset):
         return len(self.df)
 
 
-def commit_collate_fn(batchdata):
-    size = len(batchdata)
-    max_enc_len, max_dec_len, max_oov_len = 0,0,0
-    enc_len_list = [len(batchdata[i]['src_ids']) for i in range(size)]
-    trg_ids = [batchdata[i]['trg_ids'] for i in range(size)]
-    for i in range(size):
-        max_enc_len = max(len(batchdata[i]['src_ids']), max_enc_len)
-        max_dec_len = max(len(batchdata[i]['trg_ids']), max_dec_len)
-        max_oov_len = max(len(batchdata[i]['oovs']), max_oov_len)
+class Batch:
+  def __init__(self, batchdata):
+      src_ids, src_ids_ext, oovs, trg_ids = zip(*batchdata)
+      self.enc_input = pad_sequence(tuple(map(torch.LongTensor, src_ids)), batch_first=True, padding_value=0)
+      self.enc_input_ext = pad_sequence(tuple(map(torch.LongTensor, src_ids_ext)), batch_first=True, padding_value=0)
+      self.enc_pad_mask = (self.enc_input == 0)
+      self.enc_len = torch.LongTensor([len(tokens) for tokens in src_ids])
+      self.dec_input = pad_sequence(tuple(map(lambda x: torch.LongTensor(np.insert(x, 0, 2)), trg_ids)), batch_first=True, padding_value=0)
+      self.dec_target = pad_sequence(tuple(map(lambda x: torch.LongTensor(np.append(x, 3)), trg_ids)), batch_first=True, padding_value=0)
+      self.max_oov_len = max(map(len, oovs))
+    
+  def to(self, device):
+    self.enc_input = self.enc_input.to(device)
+    self.enc_input_ext = self.enc_input_ext.to(device)
+    self.enc_pad_mask = self.enc_pad_mask.to(device)
+    self.enc_len = self.enc_len.to(device)
+    self.dec_input = self.dec_input.to(device)
+    self.dec_target = self.dec_target.to(device)
 
-    for i in range(len(batchdata)):
-        batchdata[i]['src_ids'] += [0]*(max_enc_len-len(batchdata[i]['src_ids']))
-        batchdata[i]['src_ids_ext'] += [0]*(max_enc_len-len(batchdata[i]['src_ids_ext']))
-
-    batch = EasyDict()
-    batch.enc_input = torch.LongTensor([batchdata[i]['src_ids'] for i in range(size)])
-    batch.enc_input_ext = torch.LongTensor([batchdata[i]['src_ids_ext'] for i in range(size)])
-    batch.enc_pad_mask = (batch.enc_input == 0)
-    batch.enc_len = torch.LongTensor(enc_len_list)
-    batch.dec_input = torch.LongTensor([[2] + trg_ids[i] + [0]*(max_dec_len-len(trg_ids[i])) for i in range(size)])
-    batch.dec_target = torch.LongTensor([trg_ids[i] + [3] + [0]*(max_dec_len-len(trg_ids[i])) for i in range(size)])
-    batch.max_oov_len = max_oov_len
-    return batch
+def CommitCollate(batchdata):
+    return Batch(batchdata)
