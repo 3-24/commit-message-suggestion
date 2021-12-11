@@ -1,9 +1,9 @@
 from torch import nn
+from torch.optim import Adagrad
 from config import args
 import torch.nn.functional as F
 import torch
 import pytorch_lightning as pl
-from torch.optim import Adam
 """
 B : batch size
 E : embedding size
@@ -229,5 +229,5 @@ class SummarizationModel(pl.LightningModule):
         return result
     
     def configure_optimizers(self):
-        return Adam(self.parameters(), lr=args.learning_rate, initial_accumulator_value=args.accum_init)
+        return Adagrad(self.parameters(), lr=args.learning_rate, initial_accumulator_value=args.accum_init)
 
