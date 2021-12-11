@@ -23,7 +23,7 @@ class Vocab(object):
     return vocab
 
   @classmethod
-  def from_counter(cls, counter, vocab_size, min_freq, specials=[pad_token, unk_token, start_decode, stop_decode]):
+  def from_counter(cls, counter, vocab_size, min_freq=1, specials=[pad_token, unk_token, start_decode, stop_decode]):
     vocab = cls()
     word_and_freq = sorted(counter.items(), key=lambda tup: tup[0])
     word_and_freq.sort(key=lambda tup: tup[1], reverse=True)
