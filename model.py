@@ -35,7 +35,7 @@ class Encoder(nn.Module):
             (final_h, final_c): Tuple for decoder state initialization     [B x L x H]
         """
 
-        x = pack_padded_sequence(src, src_lens, batch_first=True, enforce_sorted=False)
+        x = pack_padded_sequence(src, src_lens.cpu(), batch_first=True, enforce_sorted=False)
         output, (h, c) = self.lstm(x) # [B x L x 2H], [2 x B x H], [2 x B x H]
         enc_hidden, _ = pad_packed_sequence(output, batch_first=True)
 
@@ -105,8 +105,8 @@ class AttentionDecoderLayer(nn.Module):
         cell: cell state at timestep t                      [B x H]
     """
     h, c = self.lstm(dec_input, (dec_hidden, dec_cell))  # [B X H], [B X H]
-    attn_dist = self.attention(h, enc_hidden, enc_pad_mask).unsqueeze(1)  # [B X 1 X L]
-    context_vec = torch.bmm(attn_dist, enc_hidden).squeeze(1)  # [B X 2H] <- [B X 1 X 2H] = [B X 1 X L] @ [B X L X 2H]
+    attn_dist = self.attention(h, enc_hidden, enc_pad_mask)  # [B X 1 X L]
+    context_vec = torch.bmm(attn_dist.unsqueeze(1), enc_hidden).squeeze(1)  # [B X 2H] <- [B X 1 X 2H] = [B X 1 X L] @ [B X L X 2H]
     output = self.l1(torch.cat([h, context_vec], dim = -1)) # [B X H]
     vocab_dist = F.softmax(self.l2(output), dim=-1)              # [B X V]
     return vocab_dist, attn_dist, context_vec, h, c
