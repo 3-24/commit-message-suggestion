@@ -15,6 +15,8 @@ class CommitDataset(Dataset):
         row = self.df.iloc[index]
         src = json.loads(row["commit_messsage"])
         trg = json.loads(row["diff"])
+        trg[0:0] = [self.trg_vocab.start()]
+        trg.append(self.trg_vocab.stop())
         item.src_ids = self.src_vocab.tokens2ids(src)
         item.src_ids_ext, item.oovs = self.src_vocab.tokens2ids_ext(src)
         item.trg_ids = self.trg_vocab.tokens2ids(trg)
