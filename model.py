@@ -167,8 +167,8 @@ class PointerGenerator(nn.Module):
                 input_t = dec_prev_emb
             vocab_dist, attn_dist, context_vec, h, c = self.decoder(
                 dec_input=input_t, # [B x E]
-                prev_h=h,
-                prev_c=c,
+                dec_hidden=h,
+                dec_cell=c,
                 enc_hidden=enc_hidden,
                 enc_pad_mask=enc_pad_mask
             )
