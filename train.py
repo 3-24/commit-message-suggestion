@@ -13,8 +13,7 @@ from torch.utils.data import DataLoader
 def train(root):
     pl.seed_everything(args.seed)
 
-    src_counter = Counter()
-    trg_counter = Counter()
+    counter = Counter()
     train_path = Path(root) / 'train.pkl'
     validation_path = Path(root) / 'validation.pkl'
     test_path = Path(root) / 'test.pkl'
@@ -22,23 +21,18 @@ def train(root):
 
     for msg in train_df["diff"]:
         m = json.loads(msg)
-        src_counter.update(m)
+        counter.update(m)
 
     for msg in train_df["commit_messsage"]:
         m = json.loads(msg)
-        trg_counter.update(m)
+        counter.update(m)
 
-    src_vocab = Vocab.from_counter(
-        counter=src_counter, 
+    vocab = Vocab.from_counter(
+        counter=counter, 
         vocab_size=args.vocab_size
     )
 
-    trg_vocab = Vocab.from_counter(
-        counter=trg_counter, 
-        vocab_size=args.vocab_size
-    )
-
-    model = SummarizationModel(src_vocab, trg_vocab)
+    model = SummarizationModel(vocab)
 
     trainer = pl.Trainer(
         gpus=torch.cuda.device_count(),
@@ -47,13 +41,13 @@ def train(root):
     )
 
     train_loader = DataLoader(
-        CommitDataset(src_vocab, trg_vocab, train_path),
+        CommitDataset(vocab, train_path),
         batch_size=args.batch_size,
         shuffle=True,
         collate_fn=commit_collate_fn
     )
     val_loader = DataLoader(
-        CommitDataset(src_vocab, trg_vocab, validation_path),
+        CommitDataset(vocab, validation_path),
         batch_size=args.batch_size,
         collate_fn=commit_collate_fn,
         shuffle=False
