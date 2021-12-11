@@ -6,7 +6,6 @@ unk_token = '<unk>'
 start_decode = '<start>'
 stop_decode = '<stop>'
 
-
 class Vocab(object):
   def __init__(self):
     self._word_to_id = {}
@@ -57,10 +56,15 @@ class Vocab(object):
 
   def word2id(self, word):
     unk_id = self._word_to_id.get(word, self.unk())
+    if word in self._word_to_id:
+      return self._word_to_id[word]
+    else:
+      return unk_id
   
   def id2word(self, word_id):
     if word_id >= self.__len__():
       raise ValueError(f"Id not found in vocab: {word_id}")
+    return self.id_to_word[word_id]
   
   def extend(self, oovs):
     return self._id_to_word + list(oovs)
@@ -78,4 +82,6 @@ class Vocab(object):
         if t not in oovs:
           oovs.append(t)
         ids.append(len(self) + oovs.index(t))
+      else:
+        ids.append(t_id)
     return ids, oovs
