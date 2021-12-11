@@ -70,7 +70,7 @@ class Attention(nn.Module):
         enc_feature = self.enc_proj(enc_hidden)               # [B X L X 2H]
         dec_feature = self.dec_proj(dec_input).unsqueeze(1)   # [B X 1 X 2H]
 
-        scores = torch.v(torch.tanh(enc_feature + dec_feature)).squeeze(-1)  # [B X L]
+        scores = self.v(torch.tanh(enc_feature + dec_feature)).squeeze(-1)  # [B X L]
         scores = scores.float().masked_fill_(
             enc_pad_mask,
             float('-inf')
