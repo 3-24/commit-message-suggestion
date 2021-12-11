@@ -23,3 +23,23 @@ class CommitDataset(Dataset):
     
     def __len__(self):
         return len(self.df)
+
+
+def commit_collate_fn(batchdata):
+    src_ids = [b.src_ids for b in batchdata]
+    src_ext_ids = [b.src_ids_ext for b in batchdata]
+    oovs = [b.oovs for b in batchdata]
+    trg_ids = [b.trg_ids for b in batchdata]
+    print(batchdata)
+    print(len(batchdata))
+    batch = EasyDict()
+    batch.max_oov_len = max([len(oov) for oov in oovs])
+    assert(False)
+    '''
+    batch = EasyDict()
+    batch.enc_input
+    batch.enc_input_ext
+    batch.enc_pad_mask
+    batch.enc_len
+    batch.dec_input
+  '''

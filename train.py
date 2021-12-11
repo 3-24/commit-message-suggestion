@@ -7,7 +7,7 @@ import pandas as pd
 import json
 import torch
 from model import SummarizationModel
-from data import CommitDataset
+from data import CommitDataset, commit_collate_fn
 from torch.utils.data import DataLoader
 
 def train(root):
@@ -49,13 +49,16 @@ def train(root):
     train_loader = DataLoader(
         CommitDataset(src_vocab, trg_vocab, train_path),
         batch_size=args.batch_size,
-        shuffle=True
+        shuffle=True,
+        collate_fn=commit_collate_fn
     )
     val_loader = DataLoader(
         CommitDataset(src_vocab, trg_vocab, validation_path),
         batch_size=args.batch_size,
+        collate_fn=commit_collate_fn,
         shuffle=False
     )
 
     trainer.fit(model, train_loader, val_loader)
 
+train('.')

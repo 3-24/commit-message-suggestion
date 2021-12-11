@@ -53,6 +53,12 @@ class Vocab(object):
   
   def pad(self):
     return self._word_to_id.get(pad_token)
+  
+  def start(self):
+    return self._word_to_id.get(start_decode)
+  
+  def stop(self):
+    return self._word_to_id.get(stop_decode)
 
   def word2id(self, word):
     unk_id = self._word_to_id.get(word, self.unk())

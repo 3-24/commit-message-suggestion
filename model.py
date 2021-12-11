@@ -98,7 +98,6 @@ class AttentionDecoderLayer(nn.Module):
         prev_c: decoder cell state from prev timestep       [B x H]
         enc_hidden: encoder hidden states                   [B x L x 2H]
         enc_pad_mask: encoder masks for attn computation    [B x L]
-        coverage: coverage vector at timestep t - Eq. (10)  [B x L]
     Returns:
         vocab_dist: predicted vocab dist'n at timestep t    [B x V]
         attn_dist: attention dist'n at timestep t           [B x L]
@@ -117,62 +116,96 @@ class AttentionDecoderLayer(nn.Module):
 
 
 class PointerGenerator(nn.Module):
-  def __init__(self, src_vocab, trg_vocab):
-    super().__init__()
-    embed_dim = args.embed_dim
-    self.src_embedding = nn.Embedding(len(src_vocab), embed_dim, padding_idx=src_vocab.pad())
-    self.trg_embedding = nn.Embedding(len(trg_vocab), embed_dim, padding_idx=trg_vocab.pad())
+    def __init__(self, src_vocab, trg_vocab):
+        super().__init__()
+        self.src_vocab = src_vocab
+        self.trg_vocab = trg_vocab
+        embed_dim = args.embed_dim
+        self.src_embedding = nn.Embedding(len(src_vocab), embed_dim, padding_idx=src_vocab.pad())
+        self.trg_embedding = nn.Embedding(len(trg_vocab), embed_dim, padding_idx=trg_vocab.pad())
 
 
-    hidden_dim = args.hidden_dim
-    self.encoder = Encoder(input_dim=embed_dim, hidden_dim=hidden_dim)
-    self.decoder = AttentionDecoderLayer(input_dim=embed_dim, hidden_dim=hidden_dim, vocab_size=len(trg_vocab))
+        hidden_dim = args.hidden_dim
+        self.encoder = Encoder(input_dim=embed_dim, hidden_dim=hidden_dim)
+        self.decoder = AttentionDecoderLayer(input_dim=embed_dim, hidden_dim=hidden_dim, vocab_size=len(trg_vocab))
 
-    self.w_h = nn.Linear(hidden_dim * 2, 1, bias=False)
-    self.w_s = nn.Linear(hidden_dim, 1, bias=False)
-    self.w_x = nn.Linear(embed_dim, 1, bias=True)
+        self.w_h = nn.Linear(hidden_dim * 2, 1, bias=False)
+        self.w_s = nn.Linear(hidden_dim, 1, bias=False)
+        self.w_x = nn.Linear(embed_dim, 1, bias=True)
 
 
-  def forward(self, enc_input, enc_input_ext, enc_pad_mask, enc_len, dec_input, max_oov_len):
-    """
-    Predict summary using reference summary as decoder inputs (teacher forcing)
-    Args:
-        enc_input: source text id sequence                      [B x L]
-        enc_input_ext: source text id seq w/ extended vocab     [B x L]
-        enc_pad_mask: source text padding mask. [PAD] -> True   [B x L]
-        enc_len: source text length                             [B]
-        dec_input: target text id sequence                      [B x T]
-        max_oov_len: max number of oovs in src                  [1]
-    Returns:
-        final_dists: predicted dist'n using extended vocab      [B x V_x x T]
-        attn_dists: attn dist'n from each t                     [B x L x T]
-        coverages: coverage vectors from each t                 [B x L x T]
-    """
-    enc_emb = self.src_embedding(enc_input)             # [B X L X E]
-    enc_hidden, (h,c) = self.encoder(enc_emb, enc_len)  # [B X L X 2H], [B X L X H], [B X L X H]
-    
-    dec_emb = self.trg_embedding(dec_input) # [B X T X E]
-
-    final_dists = []
-
-    for t in range(args.trg_max_len):
-        input_t = dec_emb[:, t, :]
-        vocab_dist, attn_dist, context_vec, h, c = self.decoder(
-            dec_input=input_t,
-            prev_h=h,
-            prev_c=c,
-            enc_hidden=enc_hidden,
-            enc_pad_mask=enc_pad_mask
-        )
+    def forward(self, enc_input, enc_input_ext, enc_pad_mask, enc_len, dec_input, max_oov_len):
+        """
+        Predict summary using reference summary as decoder inputs (teacher forcing)
+        Args:
+            enc_input: source text id sequence                      [B x L]
+            enc_input_ext: source text id seq w/ extended vocab     [B x L]
+            enc_pad_mask: source text padding mask. [PAD] -> True   [B x L]
+            enc_len: source text length                             [B]
+            dec_input: target text id sequence                      [B x T]
+            max_oov_len: max number of oovs in src                  [1]
+        Returns:
+            final_dists: predicted dist'n using extended vocab      [B x V_x x T]
+            attn_dists: attn dist'n from each t                     [B x L x T]
+            coverages: coverage vectors from each t                 [B x L x T]
+        """
+        enc_emb = self.src_embedding(enc_input)             # [B X L X E]
+        enc_hidden, (h,c) = self.encoder(enc_emb, enc_len)  # [B X L X 2H], [B X L X H], [B X L X H]
         
-        p_gen = torch.sigmoid(self.w_h(context_vec) + self.w_s(h) + self.w_x(input_t))
-        weighted_attn_dist = p_gen * vocab_dist + (1.0 - p_gen) * attn_dist
-        B = vocab_dist.size(0)
-        extended_vocab_dist = torch.cat([vocab_dist, torch.zeros(B, max_oov_len, device=vocab_dist.device)], dim=-1)
+        dec_emb = self.trg_embedding(dec_input) # [B X T X E]
 
-        final_dist = extended_vocab_dist.scatter_add(dim=-1, index=enc_input_ext, src=weighted_attn_dist)
-        final_dists.append(final_dist)
-    return final_dists
+        final_dists = []
+
+        for t in range(args.trg_max_len):
+            input_t = dec_emb[:, t, :]
+            vocab_dist, attn_dist, context_vec, h, c = self.decoder(
+                dec_input=input_t, # [B x E]
+                prev_h=h,
+                prev_c=c,
+                enc_hidden=enc_hidden,
+                enc_pad_mask=enc_pad_mask
+            )
+            
+            p_gen = torch.sigmoid(self.w_h(context_vec) + self.w_s(h) + self.w_x(input_t))
+            weighted_vocab_dist = p_gen * vocab_dist
+            weighted_attn_dist = (1.0 - p_gen) * attn_dist
+            B = vocab_dist.size(0)
+            extended_vocab_dist = torch.cat([weighted_vocab_dist, torch.zeros(B, max_oov_len, device=vocab_dist.device)], dim=-1)
+
+            final_dist = extended_vocab_dist.scatter_add(dim=-1, index=enc_input_ext, src=weighted_attn_dist)
+            final_dists.append(final_dist)
+        return final_dists
+    
+    def inference(self, enc_input, enc_input_ext, enc_pad_mask, enc_len, src_oovs, max_oov_len):
+        enc_emb = self.src_embedding(enc_input)
+        enc_hidden, (h, c) = self.encoder(enc_emb, enc_len)   # [B X L X 2H]
+
+
+        B = enc_input.size(0)
+        dec_tokens = [[self.trg_embedding(self.trg_vocab.start()) for _ in range(B)]]
+
+        for steps in range(args.trg_max_len):
+            input_t = torch.tensor(dec_tokens[-1], dtype=torch.long, device=enc_input.device)
+            dec_emb = self.trg_embedding(input_t)
+            vocab_dist, attn_dist, context_vec, h, c = self.decoder(
+                dec_input=dec_emb, # [B x E]
+                prev_h=h,
+                prev_c=c,
+                enc_hidden=enc_hidden,
+                enc_pad_mask=enc_pad_mask
+            )
+
+            p_gen = torch.sigmoid(self.w_h(context_vec) + self.w_s(h) + self.w_x(input_t))
+            weighted_vocab_dist = p_gen * vocab_dist
+            weighted_attn_dist = (1.0 - p_gen) * attn_dist
+            B = vocab_dist.size(0)
+            extended_vocab_dist = torch.cat([weighted_vocab_dist, torch.zeros(B, max_oov_len, device=vocab_dist.device)], dim=-1)
+
+            final_dist = extended_vocab_dist.scatter_add(dim=-1, index=enc_input_ext, src=weighted_attn_dist)  # B * (extended vocab size)
+            most_probable_vocab = torch.argmax(final_dist, dim=1)
+            if (m)
+
+
 
 
 class SummarizationModel(pl.LightningModule):
@@ -225,7 +258,7 @@ class SummarizationModel(pl.LightningModule):
         result = {}
         result['target'] = output
         result['source'] = [' '.join(w) for w in batch.src_text]
-        result['gold_target'] = [' '.join(w) for w in batch.tgt_text]
+        result['real_target'] = [' '.join(w) for w in batch.tgt_text]
         return result
     
     def configure_optimizers(self):
