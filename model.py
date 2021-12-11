@@ -185,7 +185,7 @@ class PointerGenerator(nn.Module):
                 highest_prob = torch.argmax(final_dist, dim=1)                              # [B]
                 highest_prob[highest_prob >= len(self.trg_vocab)] = self.trg_vocab.unk()
                 dec_prev_emb = self.trg_embedding(B)        #[B X E]
-        return final_dists
+        return torch.stack(final_dists, dim=-1)
 
 class SummarizationModel(pl.LightningModule):
     def __init__(self, src_vocab, trg_vocab):
@@ -202,7 +202,6 @@ class SummarizationModel(pl.LightningModule):
             enc_len=batch.enc_len,
             dec_input=batch.dec_input,
             max_oov_len=batch.max_oov_len)
-        
         dec_target = batch.dec_target
         loss = F.nll_loss(torch.log(output), dec_target, ignore_index=args.pad_id, reduction='mean')
         self.logger.log_metrics({"train_loss": loss}, self.num_step)

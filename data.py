@@ -15,10 +15,8 @@ class CommitDataset(Dataset):
     def __getitem__(self, index):
         item = EasyDict()
         row = self.df.iloc[index]
-        src = json.loads(row["commit_messsage"])
-        trg = json.loads(row["diff"])
-        trg[0:0] = [self.trg_vocab.start()]
-        trg.append(self.trg_vocab.stop())
+        src = json.loads(row["diff"])
+        trg = json.loads(row["commit_messsage"])
         item.src_ids = self.src_vocab.tokens2ids(src)
         item.src_ids_ext, item.oovs = self.src_vocab.tokens2ids_ext(src)
         item.trg_ids = self.trg_vocab.tokens2ids(trg)
@@ -31,13 +29,12 @@ class CommitDataset(Dataset):
 
 def commit_collate_fn(batchdata):
     size = len(batchdata)
-    max_enc_len, max_dec_len,max_oov_len = 0,0,0
+    max_enc_len, max_dec_len, max_oov_len = 0,0,0
     enc_len_list = [len(batchdata[i]['src_ids']) for i in range(size)]
     for i in range(size):
         max_enc_len = max(len(batchdata[i]['src_ids']),max_enc_len)
         max_dec_len = max(len(batchdata[i]['trg_ids']),max_dec_len)
         max_oov_len = max(len(batchdata[i]['oovs']),max_oov_len)
-    
     for i in range(len(batchdata)):
         batchdata[i]['src_ids'] += [0]*(max_enc_len-len(batchdata[i]['src_ids']))
         batchdata[i]['src_ids_ext'] += [0]*(max_enc_len-len(batchdata[i]['src_ids_ext']))
@@ -47,6 +44,7 @@ def commit_collate_fn(batchdata):
     batch.enc_input_ext = torch.LongTensor([batchdata[i]['src_ids_ext'] for i in range(size)])
     batch.enc_pad_mask = (batch.enc_input == 0)
     batch.enc_len = torch.LongTensor(enc_len_list)
-    batch.dec_input = torch.LongTensor([batchdata[i]['trg_ids'] for i in range(size)])
+    batch.dec_input = torch.LongTensor([[2] + batchdata[i]['trg_ids'] for i in range(size)])
+    batch.dec_target = torch.LongTensor([batchdata[i]['trg_ids']+[3] for i in range(size)])
     batch.max_oov_len = max_oov_len
     return batch
