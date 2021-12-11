@@ -9,6 +9,7 @@ import torch
 from model import SummarizationModel
 from data import CommitDataset, commit_collate_fn
 from torch.utils.data import DataLoader
+from pytorch_lightning.callbacks import ModelCheckpoint
 
 def train(root):
     pl.seed_everything(args.seed)
@@ -34,10 +35,13 @@ def train(root):
 
     model = SummarizationModel(vocab)
 
+    checkpoint_callback = ModelCheckpoint(dirpath=f"root/checkpoints/")
+
     trainer = pl.Trainer(
         gpus=torch.cuda.device_count(),
         max_epochs=args.epochs,
-        gradient_clip_val=args.max_grad_norm
+        gradient_clip_val=args.max_grad_norm,
+        callbacks=[checkpoint_callback]
     )
 
     train_loader = DataLoader(
