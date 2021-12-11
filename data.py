@@ -6,6 +6,7 @@ from easydict import EasyDict
 import torch
 from config import args
 from torch.nn.utils.rnn import pad_sequence
+import numpy as np
 
 class CommitDataset(Dataset):
     def __init__(self, vocab: Vocab, file_path):
@@ -18,10 +19,11 @@ class CommitDataset(Dataset):
         row = self.df.iloc[index]
         src = json.loads(row["diff"])
         trg = json.loads(row["commit_messsage"])
-        item.src_ids = self.vocab.tokens2ids(src)
-        item.src_ids_ext, item.oovs = self.vocab.tokens2ids_ext(src)
-        item.trg_ids = self.vocab.tokens2ids(trg)
-        return item
+        src_ids = self.vocab.tokens2ids(src)
+        src_ids_ext, oovs = self.vocab.tokens2ids_ext(src)
+        trg_ids = self.vocab.tokens2ids(trg)
+        trg_ids_ext = self.vocab.tokens2ids_oovs(trg, oovs)
+        return src_ids, src_ids_ext, oovs, trg_ids, trg_ids_ext
     
     def __len__(self):
         return len(self.df)
@@ -29,13 +31,13 @@ class CommitDataset(Dataset):
 
 class Batch:
   def __init__(self, batchdata):
-      src_ids, src_ids_ext, oovs, trg_ids = zip(*batchdata)
+      src_ids, src_ids_ext, oovs, trg_ids, trg_ids_ext = zip(*batchdata)
       self.enc_input = pad_sequence(tuple(map(torch.LongTensor, src_ids)), batch_first=True, padding_value=0)
       self.enc_input_ext = pad_sequence(tuple(map(torch.LongTensor, src_ids_ext)), batch_first=True, padding_value=0)
       self.enc_pad_mask = (self.enc_input == 0)
       self.enc_len = torch.LongTensor([len(tokens) for tokens in src_ids])
       self.dec_input = pad_sequence(tuple(map(lambda x: torch.LongTensor(np.insert(x, 0, 2)), trg_ids)), batch_first=True, padding_value=0)
-      self.dec_target = pad_sequence(tuple(map(lambda x: torch.LongTensor(np.append(x, 3)), trg_ids)), batch_first=True, padding_value=0)
+      self.dec_target = pad_sequence(tuple(map(lambda x: torch.LongTensor(np.append(x, 3)), trg_ids_ext)), batch_first=True, padding_value=0)
       self.max_oov_len = max(map(len, oovs))
     
   def to(self, device):

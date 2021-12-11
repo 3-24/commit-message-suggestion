@@ -91,3 +91,18 @@ class Vocab(object):
       else:
         ids.append(t_id)
     return ids, oovs
+  
+  
+  def tokens2ids_oovs(self, tokens, oovs):
+    ids = []
+    unk_id = self.unk()
+    for t in tokens:
+      t_id = self.word2id(t)
+      if t_id == unk_id:
+        if t in oovs:
+          ids.append(len(self)+oovs.index(t))
+        else:
+          ids.append(unk_id)
+      else:
+        ids.append(t_id)
+    return ids
