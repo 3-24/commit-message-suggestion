@@ -6,18 +6,17 @@ from collections import Counter
 import pandas as pd
 import json
 import torch
-from model import SummarizationModel, SummarizationModelBaseline
+from model import SummarizationModel
 from data import CommitDataset, commit_collate_fn
 from torch.utils.data import DataLoader
 from pytorch_lightning.callbacks import ModelCheckpoint
 
-def train(root, baseline=False):
+def train(root, pointer_gen=False, coverage=False, model_ckpt=None):
     pl.seed_everything(args.seed)
 
     counter = Counter()
     train_path = Path(root) / 'train.pkl'
     validation_path = Path(root) / 'validation.pkl'
-    test_path = Path(root) / 'test.pkl'
     train_df = pd.read_pickle(train_path)
 
     for msg in train_df["diff"]:
@@ -32,10 +31,11 @@ def train(root, baseline=False):
         counter=counter, 
         vocab_size=args.vocab_size
     )
-    if baseline:
-        model = SummarizationModelBaseline(vocab)
+
+    if model_ckpt is None:
+        model = SummarizationModel(vocab=vocab, pointer_gen=pointer_gen, coverage=coverage)
     else:
-        model = SummarizationModel(vocab)
+        model = SummarizationModel.load_from_checkpoint(model_ckpt, vocab=vocab, pointer_gen=pointer_gen, coverage=coverage)
 
     checkpoint_callback = ModelCheckpoint(dirpath=f"{root}/checkpoints/")
 

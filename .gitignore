@@ -2,3 +2,5 @@ __pycache__/*
 *.pkl
 .ipynb_checkpoints/*
 lightning_logs/*
+*.ckpt
+events.out.*

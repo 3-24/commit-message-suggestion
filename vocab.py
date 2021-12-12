@@ -59,7 +59,7 @@ class Vocab(object):
   def id2word(self, word_id):
     if word_id >= self.__len__():
       raise ValueError(f"Id not found in vocab: {word_id}")
-    return self.id_to_word[word_id]
+    return self._id_to_word[word_id]
   
   def extend(self, oovs):
     return self._id_to_word + list(oovs)
@@ -95,3 +95,14 @@ class Vocab(object):
       else:
         ids.append(t_id)
     return np.array(ids)
+  
+  def ids2words_oovs(self, ids, oovs):
+    tokens = []
+    for id_ in ids:
+      if (id_ >= len(self)):
+        tokens.append(oovs[id_-len(self)])
+      else:
+        tokens.append(self.id2word(id_))
+    
+    return tokens
+  
