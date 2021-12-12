@@ -41,7 +41,6 @@ class Batch:
         self.dec_target = collate_tokens(values=map(lambda x: torch.LongTensor(np.append(x, 3)), trg_ids_ext),
                                         pad_idx=0,
                                         pad_to_length=args.trg_max_len)
-        self.dec_pad_mask = (self.dec_target == 0)
         self.dec_len = torch.LongTensor([len(tokens)+1 for tokens in trg_ids])    # +1 for '<stop>' token
         self.max_oov_len = max(map(len, oovs))
         self.src_text = srcs
@@ -56,7 +55,6 @@ class Batch:
         self.enc_len = self.enc_len.to(device)
         self.dec_input = self.dec_input.to(device)
         self.dec_target = self.dec_target.to(device)
-        self.dec_pad_mask = self.dec_pad_mask.to(device)
         self.dec_len = self.dec_len.to(device)
 
 def commit_collate_fn(batchdata):

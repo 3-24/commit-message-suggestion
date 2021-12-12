@@ -242,7 +242,7 @@ class SummarizationModel(pl.LightningModule):
         else:
             nll_loss = F.nll_loss(torch.log(final_dist), dec_target, ignore_index=args.pad_id, reduce=False)    #[B]
             cov_loss = torch.sum(torch.min(output["attn_dist"], output["coverage"]), dim=1) # [B X T]
-            cov_loss = cov_loss.masked_fill_(batch.dec_pad_mask, 0.0)
+            cov_loss = cov_loss.masked_fill_((batch.dec_target == 0), 0.0)
             torch.sum(cov_loss, dim=1) / batch.dec_len  # [B]
             loss = torch.sum(nll_loss + cov_loss) / batch_size
         
