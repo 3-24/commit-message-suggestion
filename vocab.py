@@ -1,5 +1,5 @@
 '''
-Reference https://github.com/jiminsun/pointer-generator/blob/master/data/vocab.py
+Reference https://github.com/jiminsun/pointer-generator/
 '''
 import numpy as np
 

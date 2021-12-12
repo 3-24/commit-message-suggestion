@@ -46,7 +46,7 @@ def test(root, model_ckpt, use_pointer_gen=False, use_coverage=False):
     )
 
     test_output = trainer.test(model=model, ckpt_path=model_ckpt, dataloaders=test_loader)
-    print(test_output[0])
+    print(test_output)
 
 
 if __name__=="__main__":

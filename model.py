@@ -1,3 +1,7 @@
+'''
+Highly inspired by https://github.com/jiminsun/pointer-generator
+'''
+
 from torch import nn
 from torch.optim import Adagrad
 from config import args
@@ -291,6 +295,7 @@ class SummarizationModel(pl.LightningModule):
         duplicate_score = Metric.duplicate_vocab(gen_commits)
         BLEU_score = Metric.get_BLEU(gen_commits,real_commits)
         result = {"rouge-1":rouge_score[0],"rouge-2":rouge_score[1],"rouge-l":rouge_score[2],"duplicate_rate":duplicate_score,"BLEU":BLEU_score}
+        self.log_dict(result)
         return result
     
     def configure_optimizers(self):
