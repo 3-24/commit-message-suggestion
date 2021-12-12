@@ -11,7 +11,7 @@ from data import CommitDataset, commit_collate_fn
 from torch.utils.data import DataLoader
 from pytorch_lightning.callbacks import ModelCheckpoint
 
-def train(root):
+def train(root, baseline=False):
     pl.seed_everything(args.seed)
 
     counter = Counter()
@@ -32,8 +32,10 @@ def train(root):
         counter=counter, 
         vocab_size=args.vocab_size
     )
-
-    model = SummarizationModelBaseline(vocab)
+    if baseline:
+        model = SummarizationModelBaseline(vocab)
+    else:
+        model = SummarizationModel(vocab)
 
     checkpoint_callback = ModelCheckpoint(dirpath=f"{root}/checkpoints/")
 
