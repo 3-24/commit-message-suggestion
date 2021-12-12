@@ -190,7 +190,122 @@ class PointerGenerator(nn.Module):
                 dec_prev_emb = self.embedding(B)        #[B X E]
         return torch.stack(final_dists, dim=-1)
 
+
+class Seq2SeqAttn(nn.Module):
+    def __init__(self, vocab):
+        super().__init__()
+        embed_dim = args.embed_dim
+        hidden_dim = args.hidden_dim
+        self.vocab = vocab
+        self.embedding = nn.Embedding(len(vocab), embed_dim, padding_idx=vocab.pad())
+        self.encoder = Encoder(input_dim=embed_dim, hidden_dim=hidden_dim)
+        self.decoder = AttentionDecoderLayer(input_dim=embed_dim, hidden_dim=hidden_dim, vocab_size=len(vocab))
+
+
+    def forward(self, enc_input, enc_input_ext, enc_pad_mask, enc_len, max_oov_len, dec_input=None):
+        batch_size = enc_input.size(0)
+        enc_emb = self.embedding(enc_input)             # [B X L X E]
+        enc_hidden, (h,c) = self.encoder(enc_emb, enc_len)  # [B X L X 2H], [B X L X H], [B X L X H]
+        teacher_forcing = False
+
+        if not dec_input is None:
+            teacher_forcing = True
+            dec_emb = self.embedding(dec_input)             # [B X T X E]
+        else:
+            dec_prev_emb = [self.embedding(self.vocab().start()) for _ in range(batch_size)]  # [B X E]
+
+
+        final_dists = []
+
+        if (teacher_forcing):
+            num_iter = dec_emb.shape[1]
+        else:
+            num_iter = args.trg_max_len
+
+        for t in range(num_iter):
+            if teacher_forcing:
+                input_t = dec_emb[:, t, :]
+            else:
+                input_t = dec_prev_emb
+            vocab_dist, _, _, h, c = self.decoder(
+                dec_input=input_t, # [B x E]
+                dec_hidden=h,
+                dec_cell=c,
+                enc_hidden=enc_hidden,
+                enc_pad_mask=enc_pad_mask
+            )
+            
+            B = vocab_dist.size(0)
+            final_dist = torch.cat([vocab_dist, torch.zeros((B, max_oov_len), device=vocab_dist.device)], dim=-1)
+            final_dists.append(final_dist)
+            if (not teacher_forcing):
+                highest_prob = torch.argmax(final_dist, dim=1)                              # [B]
+                highest_prob[highest_prob >= len(self.vocab)] = self.vocab.unk()
+                dec_prev_emb = self.embedding(B)        #[B X E]
+        
+        return torch.stack(final_dists, dim=-1)
+
+
+
+
+
 class SummarizationModel(pl.LightningModule):
+    def __init__(self, vocab):
+        super().__init__()
+        self.vocab = vocab
+        self.model = Seq2SeqAttn(vocab)
+        self.num_step = 0
+    
+    def training_step(self, batch, batch_idx):
+        output = self.model.forward(
+            enc_input=batch.enc_input,
+            enc_input_ext=batch.enc_input_ext,
+            enc_pad_mask=batch.enc_pad_mask,
+            enc_len=batch.enc_len,
+            dec_input=batch.dec_input,
+            max_oov_len=batch.max_oov_len)
+        dec_target = batch.dec_target
+        loss = F.nll_loss(torch.log(output), dec_target, ignore_index=args.pad_id, reduction='mean')
+        self.logger.log_metrics({"train_loss": loss}, self.num_step)
+        self.num_step += 1
+        return loss
+    
+    def validation_step(self, batch, batch_idx):
+        output = self.model.forward(
+            enc_input=batch.enc_input,
+            enc_input_ext=batch.enc_input_ext,
+            enc_pad_mask=batch.enc_pad_mask,
+            enc_len=batch.enc_len,
+            dec_input=batch.dec_input,
+            max_oov_len=batch.max_oov_len)
+        
+        dec_target = batch.dec_target
+        loss = F.nll_loss(
+            torch.log(output), dec_target, ignore_index=args.pad_id, reduction='mean')
+        self.log('val_loss', loss, on_step=True, on_epoch=False, prog_bar=False, logger=True)
+        self.logger.log_metrics({'val_loss': loss}, self.num_step)
+        return loss
+
+    def test_step(self, batch, batch_idx):
+        output = self.model.forward(
+            enc_input=batch.enc_input,
+            enc_input_ext=batch.enc_input_ext,
+            enc_pad_mask=batch.enc_pad_mask,
+            enc_len=batch.enc_len,
+            max_oov_len=batch.max_oov_len
+        )
+        # TODO: FIXHERE
+        result = {}
+        result['target'] = output
+        result['source'] = [' '.join(w) for w in batch.src_text]
+        result['real_target'] = [' '.join(w) for w in batch.tgt_text]
+        return result
+    
+    def configure_optimizers(self):
+        return Adagrad(self.parameters(), lr=args.learning_rate, initial_accumulator_value=args.accum_init)
+
+
+class SummarizationModelBaseline(pl.LightningModule):
     def __init__(self, vocab):
         super().__init__()
         self.vocab = vocab
@@ -244,4 +359,3 @@ class SummarizationModel(pl.LightningModule):
     
     def configure_optimizers(self):
         return Adagrad(self.parameters(), lr=args.learning_rate, initial_accumulator_value=args.accum_init)
-
