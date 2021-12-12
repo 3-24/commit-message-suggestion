@@ -51,14 +51,17 @@ class Encoder(nn.Module):
 
 
 class Attention(nn.Module):
-    def __init__(self, hidden_dim=args.hidden_dim):
+    def __init__(self, hidden_dim=args.hidden_dim, use_coverage=False):
         super().__init__()
         self.v = nn.Linear(hidden_dim * 2, 1, bias=False)                       # v
         self.enc_proj = nn.Linear(hidden_dim * 2, hidden_dim * 2, bias=False)   # W_h
         self.dec_proj = nn.Linear(hidden_dim, hidden_dim * 2, bias=True)        # W_s, b_attn
-  
 
-    def forward(self, dec_input, enc_hidden, enc_pad_mask):
+        self.use_coverage = use_coverage
+        if (use_coverage):
+            self.w_c = nn.Linear(1, hidden_dim * 2, bias=False) 
+
+    def forward(self, dec_input, enc_hidden, enc_pad_mask, coverage=None):
         """
         Args:
             dec_input: decoder hidden state             [B x H]
@@ -69,12 +72,17 @@ class Attention(nn.Module):
         """
         enc_feature = self.enc_proj(enc_hidden)               # [B X L X 2H]
         dec_feature = self.dec_proj(dec_input).unsqueeze(1)   # [B X 1 X 2H]
+        scores = enc_feature +dec_feature
 
-        scores = self.v(torch.tanh(enc_feature + dec_feature)).squeeze(-1)  # [B X L]
+        if self.use_coverage:
+            coverage = coverage.unsqueeze(-1)               # [B X L X 1]
+            scores = scores + self.w_c(coverage)
+
+        scores = self.v(torch.tanh(scores)).squeeze(-1)  # [B X L]
         scores = scores.float().masked_fill_(
             enc_pad_mask,
             float('-inf')
-        ).type_as(scores)  # FP16 support: cast to float and back
+        ).type_as(scores)
         
         attn_dist = F.softmax(scores, dim=-1) # [B X L]
 
@@ -82,14 +90,15 @@ class Attention(nn.Module):
 
 
 class AttentionDecoderLayer(nn.Module):
-  def __init__(self, input_dim, hidden_dim, vocab_size):
+  def __init__(self, input_dim, hidden_dim, vocab_size, use_coverage=False):
     super().__init__()
+    self.use_coverage = use_coverage
     self.lstm = nn.LSTMCell(input_size=input_dim, hidden_size=hidden_dim)
-    self.attention = Attention(hidden_dim)
+    self.attention = Attention(hidden_dim, use_coverage=use_coverage)
     self.l1 = nn.Linear(hidden_dim*3, hidden_dim, bias=True)    # V
     self.l2 = nn.Linear(hidden_dim, vocab_size, bias=True)  # V'
   
-  def forward(self, dec_input, dec_hidden, dec_cell, enc_hidden, enc_pad_mask):
+  def forward(self, dec_input, dec_hidden, dec_cell, enc_hidden, enc_pad_mask, coverage=None):
     """
     Args:
         dec_input: decoder input embedding at timestep t    [B x E]
@@ -105,7 +114,7 @@ class AttentionDecoderLayer(nn.Module):
         cell: cell state at timestep t                      [B x H]
     """
     h, c = self.lstm(dec_input, (dec_hidden, dec_cell))  # [B X H], [B X H]
-    attn_dist = self.attention(h, enc_hidden, enc_pad_mask)  # [B X 1 X L]
+    attn_dist = self.attention(h, enc_hidden, enc_pad_mask, coverage=coverage)  # [B X 1 X L]
     context_vec = torch.bmm(attn_dist.unsqueeze(1), enc_hidden).squeeze(1)  # [B X 2H] <- [B X 1 X 2H] = [B X 1 X L] @ [B X L X 2H]
     output = self.l1(torch.cat([h, context_vec], dim = -1)) # [B X H]
     vocab_dist = F.softmax(self.l2(output), dim=-1)              # [B X V]
@@ -113,19 +122,18 @@ class AttentionDecoderLayer(nn.Module):
 
 
 class Seq2SeqAttn(nn.Module):
-    def __init__(self, vocab, pointer_gen=False, coverage=False):
+    def __init__(self, vocab, use_pointer_gen=False, use_coverage=False):
         super().__init__()
-        self.pointer_gen = pointer_gen
-        self.coverage = coverage
+        self.use_pointer_gen = use_pointer_gen
+        self.use_coverage = use_coverage
         self.vocab = vocab
         embed_dim = args.embed_dim
         self.embedding = nn.Embedding(len(vocab), embed_dim, padding_idx=vocab.pad())
 
         hidden_dim = args.hidden_dim
         self.encoder = Encoder(input_dim=embed_dim, hidden_dim=hidden_dim)
-        self.decoder = AttentionDecoderLayer(input_dim=embed_dim, hidden_dim=hidden_dim, vocab_size=len(vocab))
-
-        if pointer_gen:
+        self.decoder = AttentionDecoderLayer(input_dim=embed_dim, hidden_dim=hidden_dim, vocab_size=len(vocab), use_coverage=use_coverage)
+        if use_pointer_gen:
             self.w_h = nn.Linear(hidden_dim * 2, 1, bias=False)
             self.w_s = nn.Linear(hidden_dim, 1, bias=False)
             self.w_x = nn.Linear(embed_dim, 1, bias=True)
@@ -151,6 +159,11 @@ class Seq2SeqAttn(nn.Module):
         enc_hidden, (h,c) = self.encoder(enc_emb, enc_len)  # [B X L X 2H], [B X L X H], [B X L X H]
         teacher_forcing = False
 
+        if self.use_coverage:
+            cov = torch.zeros_like(enc_input).float()
+            coverages = []
+            attns = []
+
         if not dec_input is None:
             teacher_forcing = True
             dec_emb = self.embedding(dec_input)             # [B X T X E]
@@ -159,12 +172,7 @@ class Seq2SeqAttn(nn.Module):
 
         final_dists = []
 
-        if (teacher_forcing):
-            num_iter = dec_emb.shape[1]
-        else:
-            num_iter = args.trg_max_len
-
-        for t in range(num_iter):
+        for t in range(args.trg_max_len):
             if teacher_forcing:
                 input_t = dec_emb[:, t, :]
             else:
@@ -174,16 +182,22 @@ class Seq2SeqAttn(nn.Module):
                 dec_hidden=h,
                 dec_cell=c,
                 enc_hidden=enc_hidden,
-                enc_pad_mask=enc_pad_mask
+                enc_pad_mask=enc_pad_mask,
+                coverage=(None if not self.use_coverage else cov)
             )
-            if self.pointer_gen:
+            if self.use_coverage:
+                cov = cov + attn_dist
+                coverages.append(cov)
+                attns.append(attn_dist)
+
+            if self.use_pointer_gen:
                 p_gen = torch.sigmoid(self.w_h(context_vec) + self.w_s(h) + self.w_x(input_t))
                 weighted_vocab_dist = p_gen * vocab_dist
                 weighted_attn_dist = (1.0 - p_gen) * attn_dist
                 extended_vocab_dist = torch.cat([weighted_vocab_dist, torch.zeros((batch_size, max_oov_len), device=vocab_dist.device)], dim=-1)
                 final_dist = extended_vocab_dist.scatter_add(dim=-1, index=enc_input_ext, src=weighted_attn_dist) # index [B X L] source [B X VT]
             else:
-                final_dist = torch.cat([vocab_dist, torch.softmax(torch.zeros((batch_size, max_oov_len), device=vocab_dist.device), dim=-1)], dim=-1)
+                final_dist = vocab_dist
             final_dists.append(final_dist)
 
             if (not teacher_forcing):
@@ -191,42 +205,55 @@ class Seq2SeqAttn(nn.Module):
                 highest_prob[highest_prob >= len(self.vocab)] = self.vocab.unk()
                 dec_prev_emb = self.embedding(highest_prob)        #[B X E]
         
-        return torch.stack(final_dists, dim=-1)
+        if self.use_coverage:
+            return {"final_dist": torch.stack(final_dists, dim=-1), "attn_dist": torch.stack(attns, dim=-1), "coverage": torch.stack(coverages, dim=-1)}
+        else:
+            return {"final_dist": torch.stack(final_dists, dim=-1)}
 
 
 class SummarizationModel(pl.LightningModule):
-    def __init__(self, vocab, pointer_gen=False, coverage=False):
+    def __init__(self, vocab, use_pointer_gen=False, use_coverage=False):
         super().__init__()
+        self.use_pointer_gen = use_pointer_gen
+        self.use_coverage = use_coverage
         self.vocab = vocab
-        self.model = Seq2SeqAttn(vocab, pointer_gen=pointer_gen, coverage=coverage)
+        self.model = Seq2SeqAttn(vocab, use_pointer_gen=use_pointer_gen, use_coverage=use_coverage)
         self.num_step = 0
     
-    def training_step(self, batch, batch_idx):
+    def get_loss(self, batch, inference=False):
         output = self.model.forward(
             enc_input=batch.enc_input,
             enc_input_ext=batch.enc_input_ext,
             enc_pad_mask=batch.enc_pad_mask,
             enc_len=batch.enc_len,
-            dec_input=batch.dec_input,
+            dec_input=(None if inference else batch.dec_input),
             max_oov_len=batch.max_oov_len)
-        dec_target = batch.dec_target
-        loss = F.nll_loss(torch.log(output), dec_target, ignore_index=args.pad_id, reduction='mean')
+
+        final_dist = output["final_dist"]   # [B X V X T]
+        batch_size = final_dist.size(0)
+        dec_target = batch.dec_target       # [B X T]
+                                    
+        if (not self.use_pointer_gen):
+            dec_target[dec_target >= len(self.vocab)] = self.vocab.unk()
+        if (not self.use_coverage):
+            loss = F.nll_loss(torch.log(final_dist), dec_target, ignore_index=args.pad_id, reduction='mean')
+        else:
+            nll_loss = F.nll_loss(torch.log(final_dist), dec_target, ignore_index=args.pad_id, reduce=False)    #[B]
+            cov_loss = torch.sum(torch.min(output["attn_dist"], output["coverage"]), dim=1) # [B X T]
+            cov_loss = cov_loss.masked_fill_(batch.dec_pad_mask, 0.0)
+            torch.sum(cov_loss, dim=1) / batch.dec_len  # [B]
+            loss = torch.sum(nll_loss + cov_loss) / batch_size
+        
+        return loss
+
+    def training_step(self, batch, batch_idx):
+        loss = self.get_loss(batch)
         self.logger.log_metrics({"train_loss": loss}, self.num_step)
         self.num_step += 1
         return loss
     
     def validation_step(self, batch, batch_idx):
-        output = self.model.forward(
-            enc_input=batch.enc_input,
-            enc_input_ext=batch.enc_input_ext,
-            enc_pad_mask=batch.enc_pad_mask,
-            enc_len=batch.enc_len,
-            dec_input=batch.dec_input,
-            max_oov_len=batch.max_oov_len)
-        
-        dec_target = batch.dec_target
-        loss = F.nll_loss(
-            torch.log(output), dec_target, ignore_index=args.pad_id, reduction='mean')
+        loss = self.get_loss(batch, inference=True)
         self.log('val_loss', loss, on_step=True, on_epoch=False, prog_bar=False, logger=True)
         self.logger.log_metrics({'val_loss': loss}, self.num_step)
         return loss
@@ -239,19 +266,20 @@ class SummarizationModel(pl.LightningModule):
             enc_len=batch.enc_len,
             max_oov_len=batch.max_oov_len
         )
+        
         def _postprocess(highest_prob, oov):
             tokens = self.vocab.ids2words_oovs(highest_prob, oov)
                 
             stop_idx = tokens.index('<stop>') if '<stop>' in tokens else len(tokens)
             return  tokens[:stop_idx]
 
-
-        highest_probs = torch.argmax(output, dim=1)
+        final_dists = output["final_dist"]
+        highest_probs = torch.argmax(final_dists, dim=1)
         result = {}
-        result['gen_target'] = [' '.join(_postprocess(hp, oov)) for hp, oov in zip(torch.unbind(highest_probs), batch.oovs)]
-        result['source'] = [' '.join(src) for src in batch.src_text]
-        result['real_target'] = [' '.join(trg) for trg in batch.trg_text]
-        print(result['source'][0])
+        result['gen_target'] = [_postprocess(hp, oov) for hp, oov in zip(torch.unbind(highest_probs), batch.oovs)]
+        result['source'] = batch.src_text       #[' '.join(src) for src in batch.src_text]
+        result['real_target'] = batch.trg_text  #[' '.join(trg) for trg in batch.trg_text]
+        #print(result['source'][0])
         print(result['real_target'])
         print(result['gen_target'])
         return result

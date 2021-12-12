@@ -11,7 +11,7 @@ from data import CommitDataset, commit_collate_fn
 from torch.utils.data import DataLoader
 from pytorch_lightning.callbacks import ModelCheckpoint
 
-def train(root, pointer_gen=False, coverage=False, model_ckpt=None):
+def train(root, use_pointer_gen=False, use_coverage=False, model_ckpt=None):
     pl.seed_everything(args.seed)
 
     counter = Counter()
@@ -33,9 +33,9 @@ def train(root, pointer_gen=False, coverage=False, model_ckpt=None):
     )
 
     if model_ckpt is None:
-        model = SummarizationModel(vocab=vocab, pointer_gen=pointer_gen, coverage=coverage)
+        model = SummarizationModel(vocab=vocab, use_pointer_gen=use_pointer_gen, use_coverage=use_coverage)
     else:
-        model = SummarizationModel.load_from_checkpoint(model_ckpt, vocab=vocab, pointer_gen=pointer_gen, coverage=coverage)
+        model = SummarizationModel.load_from_checkpoint(model_ckpt, vocab=vocab, pointer_gen=use_pointer_gen, coverage=use_coverage)
 
     checkpoint_callback = ModelCheckpoint(dirpath=f"{root}/checkpoints/")
 
@@ -61,3 +61,6 @@ def train(root, pointer_gen=False, coverage=False, model_ckpt=None):
     )
 
     trainer.fit(model, train_loader, val_loader)
+
+if __name__ == "__main__":
+    train('.', use_pointer_gen=True, use_coverage=True)
