@@ -253,7 +253,7 @@ class SummarizationModel(pl.LightningModule):
     def __init__(self, vocab):
         super().__init__()
         self.vocab = vocab
-        self.model = Seq2SeqAttn(vocab)
+        self.model = PointerGenerator(vocab)
         self.num_step = 0
     
     def training_step(self, batch, batch_idx):
@@ -309,7 +309,7 @@ class SummarizationModelBaseline(pl.LightningModule):
     def __init__(self, vocab):
         super().__init__()
         self.vocab = vocab
-        self.model = PointerGenerator(vocab)
+        self.model = Seq2SeqAttn(vocab)
         self.num_step = 0
     
     def training_step(self, batch, batch_idx):
