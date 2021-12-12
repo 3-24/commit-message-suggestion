@@ -48,5 +48,5 @@ class Batch:
     self.dec_input = self.dec_input.to(device)
     self.dec_target = self.dec_target.to(device)
 
-def CommitCollate(batchdata):
+def commit_collate_fn(batchdata):
     return Batch(batchdata)

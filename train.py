@@ -6,7 +6,7 @@ from collections import Counter
 import pandas as pd
 import json
 import torch
-from model import SummarizationModel
+from model import SummarizationModel, SummarizationModelBaseline
 from data import CommitDataset, commit_collate_fn
 from torch.utils.data import DataLoader
 from pytorch_lightning.callbacks import ModelCheckpoint
@@ -33,7 +33,7 @@ def train(root):
         vocab_size=args.vocab_size
     )
 
-    model = SummarizationModel(vocab)
+    model = SummarizationModelBaseline(vocab)
 
     checkpoint_callback = ModelCheckpoint(dirpath=f"{root}/checkpoints/")
 
