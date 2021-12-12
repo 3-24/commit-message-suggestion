@@ -9,7 +9,7 @@ import torch
 from model import SummarizationModel
 from data import CommitDataset, commit_collate_fn
 from torch.utils.data import DataLoader
-from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 
 def train(root, use_pointer_gen=False, use_coverage=False, model_ckpt=None):
     pl.seed_everything(args.seed)
@@ -37,14 +37,19 @@ def train(root, use_pointer_gen=False, use_coverage=False, model_ckpt=None):
     else:
         model = SummarizationModel.load_from_checkpoint(model_ckpt, vocab=vocab, use_pointer_gen=use_pointer_gen, use_coverage=use_coverage, strict=False)
 
-    checkpoint_callback = ModelCheckpoint(dirpath=f"{root}/checkpoints/")
+    checkpoint_callback = ModelCheckpoint(
+        dirpath=f"{root}/checkpoints/", 
+        filename='{epoch}-{val_loss:2f}',
+        save_top_k=-1,
+        )
+    #early_stopping = EarlyStopping('val_loss')
 
     trainer = pl.Trainer(
         gpus=torch.cuda.device_count(),
         max_epochs=args.epochs,
         gradient_clip_val=args.max_grad_norm,
-        callbacks=[checkpoint_callback],
-        precision=16
+        checkpoint_callback=checkpoint_callback,
+        precision=16,
     )
 
     train_loader = DataLoader(
