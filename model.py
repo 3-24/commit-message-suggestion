@@ -236,7 +236,7 @@ class Seq2SeqAttn(nn.Module):
             )
             
             B = vocab_dist.size(0)
-            final_dist = torch.cat([vocab_dist, torch.zeros((B, max_oov_len), device=vocab_dist.device)], dim=-1)
+            final_dist = torch.cat([vocab_dist, torch.softmax(torch.zeros((B, max_oov_len), device=vocab_dist.device), dim=-1)], dim=-1)
             final_dists.append(final_dist)
             if (not teacher_forcing):
                 highest_prob = torch.argmax(final_dist, dim=1)                              # [B]
