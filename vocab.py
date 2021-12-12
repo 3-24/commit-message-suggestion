@@ -1,6 +1,8 @@
 '''
 Reference https://github.com/jiminsun/pointer-generator/blob/master/data/vocab.py
 '''
+import numpy as np
+
 pad_token = '<pad>'
 unk_token = '<unk>'
 start_decode = '<start>'
@@ -11,15 +13,6 @@ class Vocab(object):
     self._word_to_id = {}
     self._id_to_word = []
     self._count = 0
-
-  @classmethod
-  def from_file(cls, filename):
-    vocab = cls()
-    with open(filename, 'r') as f:
-      vocab._word_to_id = json.load(f)
-    vocab._id_to_word = [w for w, id_ in sorted(vocab._word_to_id, key=vocab._word_to_id.get, reverse=True)]
-    vocab._count = len(vocab._id_to_word)
-    return vocab
 
   @classmethod
   def from_counter(cls, counter, vocab_size, min_freq=1, specials=[pad_token, unk_token, start_decode, stop_decode]):
@@ -40,10 +33,6 @@ class Vocab(object):
       vocab._count += 1
     
     return vocab
-  
-  def save(self, filename):
-    with open(filename, 'w') as f:
-      json.dump(self._word_to_id)
   
   def __len__(self):
     return self._count
@@ -76,7 +65,7 @@ class Vocab(object):
     return self._id_to_word + list(oovs)
   
   def tokens2ids(self, tokens):
-    return [self.word2id(t) for t in tokens]
+    return np.array([self.word2id(t) for t in tokens])
   
   def tokens2ids_ext(self, tokens):
     ids = []
@@ -90,9 +79,9 @@ class Vocab(object):
         ids.append(len(self) + oovs.index(t))
       else:
         ids.append(t_id)
-    return ids, oovs
+    return np.array(ids), oovs
   
-  
+
   def tokens2ids_oovs(self, tokens, oovs):
     ids = []
     unk_id = self.unk()
@@ -105,4 +94,4 @@ class Vocab(object):
           ids.append(unk_id)
       else:
         ids.append(t_id)
-    return ids
+    return np.array(ids)
