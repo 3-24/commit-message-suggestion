@@ -10,13 +10,12 @@ from model import SummarizationModel
 from data import CommitDataset, commit_collate_fn
 from torch.utils.data import DataLoader
 
-def test(root, model_ckpt, pointer_gen=False, coverage=False):
+def test(root, model_ckpt, use_pointer_gen=False, use_coverage=False):
     pl.seed_everything(args.seed)
     counter = Counter()
     train_path = Path(root) / 'train.pkl'
     test_path = Path(root) / 'test.pkl'
     train_df = pd.read_pickle(train_path)
-
     for msg in train_df["diff"]:
         m = json.loads(msg)
         counter.update(m)
@@ -30,7 +29,8 @@ def test(root, model_ckpt, pointer_gen=False, coverage=False):
         vocab_size=args.vocab_size
     )
 
-    model = SummarizationModel.load_from_checkpoint(vocab=vocab, checkpoint_path=model_ckpt, poitner_gen=pointer_gen, coverage=coverage)
+    model = SummarizationModel.load_from_checkpoint(
+        vocab=vocab, checkpoint_path=model_ckpt, use_pointer_gen=use_pointer_gen, use_coverage=use_coverage)
     model.freeze()
     model.eval()
 
@@ -45,6 +45,9 @@ def test(root, model_ckpt, pointer_gen=False, coverage=False):
         shuffle=False
     )
 
-    trainer.test(model=model, ckpt_path=model_ckpt, dataloaders=test_loader)
+    test_output = trainer.test(model=model, ckpt_path=model_ckpt, dataloaders=test_loader)
+    print(test_output[0])
 
-test('.')
+
+if __name__=="__main__":
+    test('.', 'epoch=0-step=34266.ckpt', use_pointer_gen=True, use_coverage=False)

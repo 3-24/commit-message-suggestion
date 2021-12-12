@@ -5,6 +5,8 @@ import torch.nn.functional as F
 import torch
 import pytorch_lightning as pl
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+from itertools import chain
+from utils import Metric
 """
 B : batch size
 E : embedding size
@@ -228,7 +230,7 @@ class SummarizationModel(pl.LightningModule):
             enc_len=batch.enc_len,
             dec_input=(None if inference else batch.dec_input),
             max_oov_len=batch.max_oov_len)
-
+        
         final_dist = output["final_dist"]   # [B X V X T]
         batch_size = final_dist.size(0)
         dec_target = batch.dec_target       # [B X T]
@@ -279,9 +281,16 @@ class SummarizationModel(pl.LightningModule):
         result['gen_target'] = [_postprocess(hp, oov) for hp, oov in zip(torch.unbind(highest_probs), batch.oovs)]
         result['source'] = batch.src_text       #[' '.join(src) for src in batch.src_text]
         result['real_target'] = batch.trg_text  #[' '.join(trg) for trg in batch.trg_text]
-        #print(result['source'][0])
-        print(result['real_target'])
-        print(result['gen_target'])
+        
+        return result
+    
+    def test_epoch_end(self, test_output):
+        gen_commits = list(chain.from_iterable([batch["gen_target"] for batch in test_output]))
+        real_commits = list(chain.from_iterable([batch["real_target"] for batch in test_output]))
+        rouge_score = Metric.get_rouge_score(gen_commits,real_commits)
+        duplicate_score = Metric.duplicate_vocab(gen_commits)
+        BLEU_score = Metric.get_BLEU(gen_commits,real_commits)
+        result = {"rouge-1":rouge_score[0],"rouge-2":rouge_score[1],"rouge-l":rouge_score[2],"duplicate_rate":duplicate_score,"BLEU":BLEU_score}
         return result
     
     def configure_optimizers(self):
