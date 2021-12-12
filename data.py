@@ -35,8 +35,12 @@ class Batch:
         self.enc_input_ext = pad_sequence(tuple(map(torch.LongTensor, src_ids_ext)), batch_first=True, padding_value=0)
         self.enc_pad_mask = (self.enc_input == 0)
         self.enc_len = torch.LongTensor([len(tokens) for tokens in src_ids])
-        self.dec_input = pad_sequence(tuple(map(lambda x: torch.LongTensor(np.insert(x, 0, 2)), trg_ids)), batch_first=True, padding_value=0)
-        self.dec_target = pad_sequence(tuple(map(lambda x: torch.LongTensor(np.append(x, 3)), trg_ids_ext)), batch_first=True, padding_value=0)
+        self.dec_input = collate_tokens(values=map(lambda x: torch.LongTensor(np.insert(x, 0, 2)), trg_ids),
+                                        pad_idx=0,
+                                        pad_to_length=args.trg_max_len)
+        self.dec_target = collate_tokens(values=map(lambda x: torch.LongTensor(np.append(x, 3)), trg_ids_ext),
+                                        pad_idx=0,
+                                        pad_to_length=args.trg_max_len)
         self.dec_pad_mask = (self.dec_target == 0)
         self.dec_len = torch.LongTensor([len(tokens)+1 for tokens in trg_ids])    # +1 for '<stop>' token
         self.max_oov_len = max(map(len, oovs))
@@ -57,3 +61,23 @@ class Batch:
 
 def commit_collate_fn(batchdata):
     return Batch(batchdata)
+
+'''
+Reference: https://github.com/jiminsun/pointer-generator/blob/8ef1633f2fa66d7a51378caa7cfd72e48e7fc513/data/utils.py
+'''
+def collate_tokens(values, pad_idx, left_pad=False,
+                   pad_to_length=None):
+    # Simplified version of `collate_tokens` from fairseq.data.data_utils
+    """Convert a list of 1d tensors into a padded 2d tensor."""
+    values = list(map(torch.LongTensor, values))
+    size = max(v.size(0) for v in values)
+    size = size if pad_to_length is None else max(size, pad_to_length)
+    res = values[0].new(len(values), size).fill_(pad_idx)
+
+    def copy_tensor(src, dst):
+        assert dst.numel() == src.numel()
+        dst.copy_(src)
+
+    for i, v in enumerate(values):
+        copy_tensor(v, res[i][size - len(v):] if left_pad else res[i][:len(v)])
+    return res
