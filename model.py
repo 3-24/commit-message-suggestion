@@ -3,7 +3,7 @@ Highly inspired by https://github.com/jiminsun/pointer-generator
 '''
 
 from torch import nn
-from torch.optim import Adagrad
+from torch.optim import Adagrad, Adam
 from config import args
 import torch.nn.functional as F
 import torch
@@ -238,7 +238,8 @@ class SummarizationModel(pl.LightningModule):
         final_dist = output["final_dist"]   # [B X V X T]
         batch_size = final_dist.size(0)
         dec_target = batch.dec_target       # [B X T]
-                                    
+        # final_dist = final_dist.masked_fill_((batch.dec_target.unsqueeze(1) == 0), 1.0)
+              
         if (not self.use_pointer_gen):
             dec_target[dec_target >= len(self.vocab)] = self.vocab.unk()
         if (not self.use_coverage):
@@ -299,4 +300,5 @@ class SummarizationModel(pl.LightningModule):
         return result
     
     def configure_optimizers(self):
-        return Adagrad(self.parameters(), lr=args.learning_rate, initial_accumulator_value=args.accum_init)
+        #return Adagrad(self.parameters(), lr=args.learning_rate, initial_accumulator_value=args.accum_init)
+        return Adam(self.parameters(), lr=args.learning_rate))
