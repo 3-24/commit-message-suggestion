@@ -301,4 +301,4 @@ class SummarizationModel(pl.LightningModule):
     
     def configure_optimizers(self):
         #return Adagrad(self.parameters(), lr=args.learning_rate, initial_accumulator_value=args.accum_init)
-        return Adam(self.parameters(), lr=args.learning_rate))
+        return Adam(self.parameters(), lr=args.learning_rate)
