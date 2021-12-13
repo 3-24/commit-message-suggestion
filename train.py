@@ -42,7 +42,8 @@ def train(root, use_pointer_gen=False, use_coverage=False, model_ckpt=None):
         dirpath=f"{root}/checkpoints/", 
         filename='{epoch}-{val_loss:2f}',
         save_top_k=-1,
-        verbose=True
+        verbose=True,
+        every_n_epochs=1
         )
     #early_stopping = EarlyStopping('val_loss')
 
