@@ -12,6 +12,7 @@ from torch.utils.data import DataLoader
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 
 def train(root, use_pointer_gen=False, use_coverage=False, model_ckpt=None):
+    torch.autograd.set_detect_anomaly()
     pl.seed_everything(args.seed)
 
     counter = Counter()
@@ -68,4 +69,4 @@ def train(root, use_pointer_gen=False, use_coverage=False, model_ckpt=None):
     trainer.fit(model, train_loader, val_loader)
 
 if __name__ == "__main__":
-    train('.', use_pointer_gen=True, use_coverage=True, model_ckpt="pgn-epoch=7-step=274135.ckpt")
+    train('.', use_pointer_gen=True, use_coverage=True)
