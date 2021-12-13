@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 
 def train(root, use_pointer_gen=False, use_coverage=False, model_ckpt=None):
-    torch.autograd.set_detect_anomaly()
+    torch.autograd.set_detect_anomaly(True)
     pl.seed_everything(args.seed)
 
     counter = Counter()
