@@ -42,15 +42,16 @@ def train(root, use_pointer_gen=False, use_coverage=False, model_ckpt=None):
         dirpath=f"{root}/checkpoints/", 
         filename='{epoch}-{val_loss:2f}',
         save_top_k=-1,
+        verbose=True
         )
     #early_stopping = EarlyStopping('val_loss')
 
     trainer = pl.Trainer(
         gpus=torch.cuda.device_count(),
         max_epochs=args.epochs,
+        callbacks=[checkpoint_callback]
         gradient_clip_val=args.max_grad_norm,
-        checkpoint_callback=checkpoint_callback,
-        precision=16,
+        precision=16
     )
 
     train_loader = DataLoader(
@@ -69,4 +70,4 @@ def train(root, use_pointer_gen=False, use_coverage=False, model_ckpt=None):
     trainer.fit(model, train_loader, val_loader)
 
 if __name__ == "__main__":
-    train('.', use_pointer_gen=True, use_coverage=True)
+    train('.',  model_ckpt=f"./pgn-epoch=7-step=274135.ckpt", use_pointer_gen=True, use_coverage=True)
