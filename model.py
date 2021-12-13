@@ -242,14 +242,14 @@ class SummarizationModel(pl.LightningModule):
               
         if (not self.use_pointer_gen):
             dec_target[dec_target >= len(self.vocab)] = self.vocab.unk()
-        if (not self.use_coverage):
-            loss = F.nll_loss(torch.log(final_dist), dec_target, ignore_index=args.pad_id, reduction='mean')
-        else:
-            nll_loss = F.nll_loss(torch.log(final_dist), dec_target, ignore_index=args.pad_id, reduce=False)    #[B]
+        
+        loss = F.nll_loss(torch.log(final_dist), dec_target, ignore_index=args.pad_id, reduction='mean')
+        
+        if (self.use_coverage):
             cov_loss = torch.sum(torch.min(output["attn_dist"], output["coverage"]), dim=1) # [B X T]
             cov_loss = cov_loss.masked_fill_((batch.dec_target == 0), 0.0)
-            torch.sum(cov_loss, dim=1) / batch.dec_len  # [B]
-            loss = torch.sum(nll_loss + cov_loss) / batch_size
+            cov_loss = torch.sum(cov_loss, dim=1) / batch.dec_len  # [B]
+            loss = loss + torch.sum(cov_loss) / batch_size
         
         return loss
 
@@ -286,7 +286,13 @@ class SummarizationModel(pl.LightningModule):
         result['gen_target'] = [_postprocess(hp, oov) for hp, oov in zip(torch.unbind(highest_probs), batch.oovs)]
         result['source'] = batch.src_text       #[' '.join(src) for src in batch.src_text]
         result['real_target'] = batch.trg_text  #[' '.join(trg) for trg in batch.trg_text]
-        
+        if result['gen_target'][0][0] =="fix" or True:
+            print(' '.join(result['source'][0]))
+            print("generated commit message : ",' '.join(result['gen_target'][0]))
+            print("real commit message      : ", ' '.join(result['real_target'][0]))
+            print(batch.indices)
+            input()
+        #input()
         return result
     
     def test_epoch_end(self, test_output):
