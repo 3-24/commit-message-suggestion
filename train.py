@@ -49,7 +49,7 @@ def train(root, use_pointer_gen=False, use_coverage=False, model_ckpt=None):
     trainer = pl.Trainer(
         gpus=torch.cuda.device_count(),
         max_epochs=args.epochs,
-        callbacks=[checkpoint_callback]
+        callbacks=[checkpoint_callback],
         gradient_clip_val=args.max_grad_norm,
         precision=16
     )
