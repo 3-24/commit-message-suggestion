@@ -269,7 +269,7 @@ class SummarizationModel(pl.LightningModule):
     def validation_epoch_end(self, outputs):
         val_losses = []
         for p in outputs:
-            val_losses.append[p['val_loss']]
+            val_losses.append(p['val_loss'])
         val_loss_avg = sum(val_losses) / len(val_losses)
         return {'val_loss_avg': val_loss_avg}
 
