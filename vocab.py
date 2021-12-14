@@ -105,4 +105,26 @@ class Vocab(object):
         tokens.append(self.id2word(id_))
     
     return tokens
-  
+
+
+if __name__=="__main__":
+  import json
+  from collections import Counter
+  import pandas as pd
+  counter = Counter()
+  train_df = pd.read_pickle('./train.pkl')
+
+  for msg in train_df["diff"]:
+      m = json.loads(msg)
+      counter.update(m)
+
+  for msg in train_df["commit_messsage"]:
+      m = json.loads(msg)
+      counter.update(m)
+
+  vocab = Vocab.from_counter(
+      counter=counter, 
+      vocab_size=50000
+  )
+
+  print(vocab.word2id('simplify'))
