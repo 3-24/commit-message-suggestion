@@ -39,7 +39,7 @@ def train(root, use_pointer_gen=False, use_coverage=False, model_ckpt=None):
         model = SummarizationModel.load_from_checkpoint(model_ckpt, vocab=vocab, use_pointer_gen=use_pointer_gen, use_coverage=use_coverage, strict=False)
 
     checkpoint_callback = ModelCheckpoint(
-        filename='{epoch}-{val_loss:2f}',
+        filename='{epoch}-{val_loss_avg:2f}',
         save_top_k=-1,
         verbose=True,
         every_n_epochs=1

@@ -263,7 +263,15 @@ class SummarizationModel(pl.LightningModule):
         loss = self.get_loss(batch, inference=True)
         self.log('val_loss', loss, on_step=True, on_epoch=False, prog_bar=False, logger=True)
         self.logger.log_metrics({'val_loss': loss}, self.num_step)
-        return loss
+        return {'val_loss': loss}
+    
+
+    def validation_epoch_end(self, outputs):
+        val_losses = []
+        for p in outputs:
+            val_losses.append[p['val_loss']]
+        val_loss_avg = sum(val_losses) / len(val_losses)
+        return {'val_loss_avg': val_loss_avg}
 
     def test_step(self, batch, batch_idx):
         output = self.model.forward(
