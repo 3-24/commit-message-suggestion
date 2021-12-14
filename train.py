@@ -12,7 +12,6 @@ from torch.utils.data import DataLoader
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 
 def train(root, use_pointer_gen=False, use_coverage=False, model_ckpt=None):
-    torch.autograd.set_detect_anomaly(True)
     pl.seed_everything(args.seed)
 
     counter = Counter()
@@ -51,7 +50,8 @@ def train(root, use_pointer_gen=False, use_coverage=False, model_ckpt=None):
         max_epochs=args.epochs,
         callbacks=[checkpoint_callback],
         gradient_clip_val=args.max_grad_norm,
-        precision=16
+        precision=16,
+        detect_anomaly=True
     )
 
     train_loader = DataLoader(
