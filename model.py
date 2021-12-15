@@ -19,6 +19,8 @@ L : sequence length
 T : target sequence length
 """
 
+debug = False
+
 class Encoder(nn.Module):
 
     def __init__(self, input_dim=args.embed_dim, hidden_dim=args.hidden_dim):
@@ -286,13 +288,13 @@ class SummarizationModel(pl.LightningModule):
         result['gen_target'] = [_postprocess(hp, oov) for hp, oov in zip(torch.unbind(highest_probs), batch.oovs)]
         result['source'] = batch.src_text       #[' '.join(src) for src in batch.src_text]
         result['real_target'] = batch.trg_text  #[' '.join(trg) for trg in batch.trg_text]
-        if result['gen_target'][0][0] =="fix" or True:
-            print(' '.join(result['source'][0]))
-            print("generated commit message : ",' '.join(result['gen_target'][0]))
-            print("real commit message      : ", ' '.join(result['real_target'][0]))
-            print(batch.indices)
-            input()
-        #input()
+        if debug:
+            if result['gen_target'][0][0] =="fix" or True:
+                print(' '.join(result['source'][0]))
+                print("generated commit message : ",' '.join(result['gen_target'][0]))
+                print("real commit message      : ", ' '.join(result['real_target'][0]))
+                print(batch.indices)
+                input()
         return result
     
     def test_epoch_end(self, test_output):
