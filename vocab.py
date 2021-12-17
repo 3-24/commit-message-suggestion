@@ -31,26 +31,18 @@ class Vocab(object):
       vocab._word_to_id[word] = vocab._count
       vocab._id_to_word.append(word)
       vocab._count += 1
-    
+
+    self.unk = self._word_to_id.get(unk_token)    
+    self.pad = self._word_to_id.get(pad_token)
+    self.start = self._word_to_id.get(start_decode)
+    self.stop = self._word_to_id.get(stop_decode)
     return vocab
   
   def __len__(self):
     return self._count
-  
-  def unk(self):
-    return self._word_to_id.get(unk_token)
-  
-  def pad(self):
-    return self._word_to_id.get(pad_token)
-  
-  def start(self):
-    return self._word_to_id.get(start_decode)
-  
-  def stop(self):
-    return self._word_to_id.get(stop_decode)
 
   def word2id(self, word):
-    unk_id = self._word_to_id.get(word, self.unk())
+    unk_id = self._word_to_id.get(word, self.unk)
     if word in self._word_to_id:
       return self._word_to_id[word]
     else:
@@ -61,16 +53,13 @@ class Vocab(object):
       raise ValueError(f"Id not found in vocab: {word_id}")
     return self._id_to_word[word_id]
   
-  def extend(self, oovs):
-    return self._id_to_word + list(oovs)
-  
   def tokens2ids(self, tokens):
     return np.array([self.word2id(t) for t in tokens])
   
   def tokens2ids_ext(self, tokens):
     ids = []
     oovs = []
-    unk_id = self.unk()
+    unk_id = self.unk
     for t in tokens:
       t_id = self.word2id(t)
       if t_id == unk_id:
@@ -84,7 +73,7 @@ class Vocab(object):
 
   def tokens2ids_oovs(self, tokens, oovs):
     ids = []
-    unk_id = self.unk()
+    unk_id = self.unk
     for t in tokens:
       t_id = self.word2id(t)
       if t_id == unk_id:

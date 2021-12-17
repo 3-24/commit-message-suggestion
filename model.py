@@ -136,7 +136,7 @@ class Seq2SeqAttn(nn.Module):
         self.use_coverage = use_coverage
         self.vocab = vocab
         embed_dim = args.embed_dim
-        self.embedding = nn.Embedding(len(vocab), embed_dim, padding_idx=vocab.pad())
+        self.embedding = nn.Embedding(len(vocab), embed_dim, padding_idx=vocab.pad)
 
         hidden_dim = args.hidden_dim
         self.encoder = Encoder(input_dim=embed_dim, hidden_dim=hidden_dim)
@@ -176,7 +176,7 @@ class Seq2SeqAttn(nn.Module):
             teacher_forcing = True
             dec_emb = self.embedding(dec_input)             # [B X T X E]
         else:
-            dec_prev_emb = self.embedding(torch.full((batch_size,), self.vocab.start(), device=enc_emb.device))
+            dec_prev_emb = self.embedding(torch.full((batch_size,), self.vocab.start, device=enc_emb.device))
 
         final_dists = []
 
@@ -210,7 +210,7 @@ class Seq2SeqAttn(nn.Module):
 
             if (not teacher_forcing):
                 highest_prob = torch.argmax(final_dist, dim=1)                              # [B]
-                highest_prob[highest_prob >= len(self.vocab)] = self.vocab.unk()
+                highest_prob[highest_prob >= len(self.vocab)] = self.vocab.unk
                 dec_prev_emb = self.embedding(highest_prob)        #[B X E]
         
         if self.use_coverage:
@@ -243,7 +243,7 @@ class SummarizationModel(pl.LightningModule):
         # final_dist = final_dist.masked_fill_((batch.dec_target.unsqueeze(1) == 0), 1.0)
               
         if (not self.use_pointer_gen):
-            dec_target[dec_target >= len(self.vocab)] = self.vocab.unk()
+            dec_target[dec_target >= len(self.vocab)] = self.vocab.unk
         
         loss = F.nll_loss(torch.log(final_dist), dec_target, ignore_index=args.pad_id, reduction='mean')
         
