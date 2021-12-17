@@ -1,6 +1,10 @@
 # Commit Message Suggestion
 
+## Dataset
+
+For all repositories in CodeSearchNet, we collected their diff and commit message. `dataset_generation/Dataset Generation.ipynb` shows the overall process of dataset collection and tokenization.
+
 ## Model
 
-Model for commit message suggestion from code diffs. It is using pointer generator network architecture refering [Get to the Point: Summarization with Pointer-Generator Networks](https://research.google/pubs/pub46111/) and [PyTorch implementations](https://github.com/jiminsun/pointer-generator).
+Model for commit message suggestion from code diffs. It is using pointer generator network architecture refering [Get to the Point: Summarization with Pointer-Generator Networks](https://research.google/pubs/pub46111/) and [its PyTorch implementations](https://github.com/jiminsun/pointer-generator).
 
