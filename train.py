@@ -68,6 +68,3 @@ def train(root, use_pointer_gen=False, use_coverage=False, model_ckpt=None):
     )
 
     trainer.fit(model, train_loader, val_loader)
-
-if __name__ == "__main__":
-    train('.',  model_ckpt=f"./pgn-epoch=7-step=274135.ckpt", use_pointer_gen=True, use_coverage=True)
