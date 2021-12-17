@@ -2,7 +2,7 @@
 
 ## Dataset
 
-For all repositories in CodeSearchNet, we collected their diff and commit message. `dataset_generation/Dataset Generation.ipynb` shows the overall process of dataset collection and tokenization.
+For all repositories in CodeSearchNet, we collected their diff and commit message. We provided [the notebook](dataset_generation/Dataset%20Generation.ipynb) that shows the overall process of dataset collection and tokenization.
 
 ## Model
 
