@@ -32,10 +32,10 @@ class Vocab(object):
       vocab._id_to_word.append(word)
       vocab._count += 1
 
-    self.unk = self._word_to_id.get(unk_token)    
-    self.pad = self._word_to_id.get(pad_token)
-    self.start = self._word_to_id.get(start_decode)
-    self.stop = self._word_to_id.get(stop_decode)
+    vocab.unk = vocab._word_to_id.get(unk_token)    
+    vocab.pad = vocab._word_to_id.get(pad_token)
+    vocab.start = vocab._word_to_id.get(start_decode)
+    vocab.stop = vocab._word_to_id.get(stop_decode)
     return vocab
   
   def __len__(self):
