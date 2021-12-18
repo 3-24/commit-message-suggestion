@@ -22,7 +22,7 @@ class CommitDataset(Dataset):
         src_ids_ext, oovs = self.vocab.tokens2ids_ext(src)
         trg_ids = self.vocab.tokens2ids(trg)
         trg_ids_ext = self.vocab.tokens2ids_oovs(trg, oovs)
-        return src, trg, src_ids, src_ids_ext, oovs, trg_ids, trg_ids_ext
+        return src, trg, src_ids, src_ids_ext, oovs, trg_ids, trg_ids_ext, index
     
     def __len__(self):
         return len(self.df)
@@ -30,7 +30,7 @@ class CommitDataset(Dataset):
 
 class Batch:
     def __init__(self, batchdata):
-        srcs, trgs, src_ids, src_ids_ext, oovs, trg_ids, trg_ids_ext = zip(*batchdata)
+        srcs, trgs, src_ids, src_ids_ext, oovs, trg_ids, trg_ids_ext, indices = zip(*batchdata)
         self.enc_input = pad_sequence(tuple(map(torch.LongTensor, src_ids)), batch_first=True, padding_value=0)
         self.enc_input_ext = pad_sequence(tuple(map(torch.LongTensor, src_ids_ext)), batch_first=True, padding_value=0)
         self.enc_pad_mask = (self.enc_input == 0)
@@ -46,6 +46,7 @@ class Batch:
         self.src_text = srcs
         self.trg_text = trgs
         self.oovs = oovs
+        self.indices = indices
 
     
     def to(self, device):
