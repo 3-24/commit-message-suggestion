@@ -8,6 +8,12 @@ For all repositories in CodeSearchNet, we collected their diff and commit messag
 
 Model for commit message suggestion from code diffs. It is using pointer generator network architecture refering [Get to the Point: Summarization with Pointer-Generator Networks](https://research.google/pubs/pub46111/) and [its PyTorch implementations](https://github.com/jiminsun/pointer-generator).
 
+## Install Requirements
+
+```shell
+pip install -r requirements.txt
+```
+
 ## How to Use
 
 `train.py` provides train function with four arguments. It trains the commit message suggestion with ten epochs.
